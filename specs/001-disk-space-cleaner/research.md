@@ -105,7 +105,13 @@ Cada seção segue o formato Decision / Rationale / Alternatives considered.
   `Settings`:
   - **Anthropic (Claude)**: Messages API, modelo padrão configurável
     (sugestão: `claude-haiku-5-5` pelo custo em lote), saída estruturada por JSON schema.
-  - **OpenAI-compatible**: Chat Completions com `response_format` JSON schema.
+  - **OpenAI**: Responses API (`POST /v1/responses`) com `text.format` = JSON schema estrito;
+    modelo padrão `gpt-6-astra` (recomendação atual da OpenAI; snapshots `gpt-5-*` em
+    descontinuação). *Revisado em 2026-10-14.*
+  - **Gemini**: `generateContent` (segue suportado) em modo JSON, schema nas instruções e
+    validação no cliente; modelo padrão `gemini-3.8-flash` (o 2.5 só atende contas que já o
+    usavam). A API Interactions é recomendada para projetos novos — candidata a migração futura.
+    *Revisado em 2026-10-14.*
   - **Ollama (local)**: `POST http://localhost:11434/api/chat` com `format` = JSON schema.
   - HTTP via `reqwest` (rustls). Lotes de até 25 itens por chamada; timeout de 30 s; 2 retries
     com backoff exponencial em 429/5xx.

@@ -35,9 +35,14 @@ describe("AI settings store", () => {
   beforeEach(() => setActivePinia(createPinia()));
 
   it("loads settings into the form without exposing a key", async () => {
-    const { store } = setup(aiSettings({ provider: "openai", model: "gpt-5" }));
+    const { store } = setup(aiSettings({ provider: "openai", model: "gpt-6-astra" }));
     await store.load();
-    expect(store.form).toEqual({ provider: "openai", model: "gpt-5", baseUrl: "", apiKey: "" });
+    expect(store.form).toEqual({
+      provider: "openai",
+      model: "gpt-6-astra",
+      baseUrl: "",
+      apiKey: "",
+    });
     expect(store.providerInfo?.label).toBe("OpenAI");
     expect(store.aiEnabled).toBe(false);
   });

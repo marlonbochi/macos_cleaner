@@ -81,8 +81,8 @@ export function aiSettings(overrides: Partial<AiSettingsDto> = {}): AiSettingsDt
     baseUrl: null,
     providers: [
       provider("anthropic", "Claude (Anthropic)", "claude-opus-5-5"),
-      provider("openai", "OpenAI", "gpt-5"),
-      provider("gemini", "Gemini (Google)", "gemini-2.5-flash"),
+      provider("openai", "OpenAI", "gpt-6-astra"),
+      provider("gemini", "Gemini (Google)", "gemini-3.8-flash"),
       provider("ollama", "Ollama (local)", "llama3.2", false),
     ],
     ...overrides,

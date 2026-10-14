@@ -75,7 +75,7 @@ manter, revisar), passos e comandos sugeridos com botão de copiar.
 
 ## Assumptions
 
-- Modelos padrão: `claude-opus-5-5`, `gpt-5`, `gemini-2.5-flash`, `llama3.2` (editáveis).
+- Modelos padrão: `claude-opus-5-5`, `gpt-6-astra`, `gemini-3.8-flash`, `llama3.2` (editáveis).
 - No Claude, modelos que suportam são chamados com fallback de recusa do servidor
   (`fallbacks: "default"`).
 - Análise em lote dos N maiores e o benchmark rotulado (SC-006 da 001) ficam para uma etapa futura.

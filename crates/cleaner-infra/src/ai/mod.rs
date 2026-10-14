@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn cloud_providers_need_a_key() {
         let f = HttpAiProviderFactory::default();
-        let s = settings(AiProviderKind::Gemini, "gemini-2.5-flash", "https://x");
+        let s = settings(AiProviderKind::Gemini, "gemini-3.8-flash", "https://x");
         assert!(matches!(f.create(&s, None), Err(AiError::MissingApiKey(_))));
         assert!(matches!(
             f.create(&s, Some("  ".into())),

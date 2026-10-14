@@ -81,41 +81,65 @@ pub(crate) struct OpenAi {
     pub(crate) model: String,
 }
 
+/// Uses the Responses API (`/v1/responses`), where OpenAI documents its current models and
+/// Structured Outputs (`text.format` with a strict JSON schema).
 impl AiProvider for OpenAi {
     fn complete_json(&self, request: &StructuredRequest<'_>) -> Result<Value, AiError> {
         let body = json!({
             "model": self.model,
-            "messages": [
+            "input": [
                 { "role": "system", "content": request.system },
                 { "role": "user", "content": request.user },
             ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": { "name": request.schema_name, "schema": request.schema, "strict": true },
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": request.schema_name,
+                    "schema": request.schema,
+                    "strict": true,
+                },
             },
         });
-        // Accept both "https://api.openai.com" and OpenAI-compatible ".../v1" base URLs.
+        // Accept both "https://api.openai.com" and ".../v1" base URLs.
         let base = self.base_url.trim_end_matches("/v1");
         let auth = format!("Bearer {}", self.api_key);
         let reply = self.http.post(
-            &format!("{base}/v1/chat/completions"),
+            &format!("{base}/v1/responses"),
             &[("authorization", auth.as_str())],
             &body,
         )?;
-        let message = reply
-            .pointer("/choices/0/message")
-            .ok_or_else(|| AiError::InvalidResponse("missing choices".into()))?;
-        if message.get("refusal").is_some_and(|r| !r.is_null()) {
-            return Err(AiError::Refused);
-        }
-        if reply
-            .pointer("/choices/0/finish_reason")
-            .and_then(Value::as_str)
-            == Some("length")
-        {
+        if reply.get("status").and_then(Value::as_str) == Some("incomplete") {
             return Err(AiError::InvalidResponse("response truncated".into()));
         }
-        parse_json_text(require_str(message, "/content")?)
+        // output[] → items of type "message" → content[] of "output_text" or "refusal".
+        let mut text = String::new();
+        for item in reply
+            .get("output")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            for part in item
+                .get("content")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                match part.get("type").and_then(Value::as_str) {
+                    Some("refusal") => return Err(AiError::Refused),
+                    Some("output_text") => {
+                        text.push_str(part.get("text").and_then(Value::as_str).unwrap_or_default());
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if text.is_empty() {
+            return Err(AiError::InvalidResponse(
+                "no output_text in response".into(),
+            ));
+        }
+        parse_json_text(&text)
     }
 
     fn descriptor(&self) -> (String, String) {

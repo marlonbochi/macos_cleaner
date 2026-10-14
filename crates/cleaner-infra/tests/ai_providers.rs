@@ -127,34 +127,41 @@ fn anthropic_refusal_and_truncation_are_errors() {
 }
 
 #[test]
-fn openai_uses_json_schema_response_format_and_accepts_v1_base_urls() {
+fn openai_uses_responses_api_with_strict_json_schema_and_accepts_v1_base_urls() {
     let mut server = Server::new();
     let mock = server
-        .mock("POST", "/v1/chat/completions")
+        .mock("POST", "/v1/responses")
         .match_header("authorization", "Bearer sk-oai")
         .match_body(Matcher::PartialJson(json!({
-            "model": "gpt-5",
-            "messages": [{"role": "system", "content": "sys"}, {"role": "user", "content": "user message"}],
-            "response_format": {"type": "json_schema", "json_schema": {"name": "test", "strict": true}}
+            "model": "gpt-6-astra",
+            "input": [{"role": "system", "content": "sys"}, {"role": "user", "content": "user message"}],
+            "text": {"format": {"type": "json_schema", "name": "test", "schema": schema(), "strict": true}}
         })))
         .with_body(
-            json!({"choices": [{"finish_reason": "stop", "message": {"content": ANSWER, "refusal": null}}]})
-                .to_string(),
+            json!({
+                "status": "completed",
+                "output": [
+                    {"type": "reasoning", "summary": []},
+                    {"type": "message", "content": [{"type": "output_text", "text": ANSWER}]}
+                ]
+            })
+            .to_string(),
         )
         .expect(2)
         .create();
 
     let p = provider(
         AiProviderKind::OpenAi,
-        "gpt-5",
+        "gpt-6-astra",
         &server.url(),
         Some("sk-oai"),
     );
     assert_eq!(ask(p.as_ref()).unwrap(), json!({"ok": true}));
+    let base_v1 = format!("{}/v1", server.url());
     let p = provider(
         AiProviderKind::OpenAi,
-        "gpt-5",
-        &format!("{}/v1", server.url()),
+        "gpt-6-astra",
+        &base_v1,
         Some("sk-oai"),
     );
     assert_eq!(ask(p.as_ref()).unwrap(), json!({"ok": true}));
@@ -162,23 +169,42 @@ fn openai_uses_json_schema_response_format_and_accepts_v1_base_urls() {
 }
 
 #[test]
-fn openai_refusal_is_an_error() {
+fn openai_refusal_and_incomplete_are_errors() {
     let mut server = Server::new();
     server
-        .mock("POST", "/v1/chat/completions")
+        .mock("POST", "/v1/responses")
         .with_body(
-            json!({"choices": [{"message": {"content": null, "refusal": "no"}}]}).to_string(),
+            json!({"status": "completed", "output": [{"type": "message", "content": [{"type": "refusal", "refusal": "no"}]}]})
+                .to_string(),
         )
         .create();
-    let p = provider(AiProviderKind::OpenAi, "gpt-5", &server.url(), Some("k"));
+    let p = provider(
+        AiProviderKind::OpenAi,
+        "gpt-6-astra",
+        &server.url(),
+        Some("k"),
+    );
     assert_eq!(ask(p.as_ref()), Err(AiError::Refused));
+
+    let mut server = Server::new();
+    server
+        .mock("POST", "/v1/responses")
+        .with_body(json!({"status": "incomplete", "output": []}).to_string())
+        .create();
+    let p = provider(
+        AiProviderKind::OpenAi,
+        "gpt-6-astra",
+        &server.url(),
+        Some("k"),
+    );
+    assert!(matches!(ask(p.as_ref()), Err(AiError::InvalidResponse(_))));
 }
 
 #[test]
 fn gemini_puts_the_schema_in_instructions_and_joins_parts() {
     let mut server = Server::new();
     let mock = server
-        .mock("POST", "/v1beta/models/gemini-2.5-flash:generateContent")
+        .mock("POST", "/v1beta/models/gemini-3.8-flash:generateContent")
         .match_header("x-goog-api-key", "g-key")
         .match_body(Matcher::PartialJson(json!({
             "contents": [{"role": "user", "parts": [{"text": "user message"}]}],
@@ -192,7 +218,7 @@ fn gemini_puts_the_schema_in_instructions_and_joins_parts() {
         .create();
     let p = provider(
         AiProviderKind::Gemini,
-        "gemini-2.5-flash",
+        "gemini-3.8-flash",
         &server.url(),
         Some("g-key"),
     );
@@ -209,7 +235,7 @@ fn gemini_safety_block_is_a_refusal() {
         .create();
     let p = provider(
         AiProviderKind::Gemini,
-        "gemini-2.5-flash",
+        "gemini-3.8-flash",
         &server.url(),
         Some("k"),
     );

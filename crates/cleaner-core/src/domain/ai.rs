@@ -40,8 +40,8 @@ impl AiProviderKind {
     pub const fn default_model(self) -> &'static str {
         match self {
             Self::Anthropic => "claude-opus-5-5",
-            Self::OpenAi => "gpt-5",
-            Self::Gemini => "gemini-2.5-flash",
+            Self::OpenAi => "gpt-6-astra",
+            Self::Gemini => "gemini-3.8-flash",
             Self::Ollama => "llama3.2",
         }
     }
