@@ -22,7 +22,7 @@ export async function mountWithPlugins<C extends Component>(
   await router.isReady();
   const wrapper = mount(component, {
     ...options,
-    global: { plugins: [createAppI18n(), pinia, router], ...options.global },
+    global: { plugins: [createAppI18n("pt-BR"), pinia, router], ...options.global },
   });
   return { wrapper, router, pinia };
 }

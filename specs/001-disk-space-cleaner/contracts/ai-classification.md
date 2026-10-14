@@ -82,8 +82,8 @@ Batch: `{ "analyses": [ { "id": "<echoed id>", ...single-item fields } ] }` with
    (single-line, ≤ 400 chars).
 5. Safety floor: if local rules classify an item as `Dangerous`, an AI answer below `Caution` is
    raised to `Dangerous`, with a note in the explanation.
-6. `evaluator_version = "<provider>:<model>:prompt-v<N>"`; changing the prompt increments `N`, which
-   invalidates cached AI assessments.
+6. `evaluator_version = "<provider>:<model>:prompt-v<N>:<locale>"`; changing the prompt increments
+   `N`, which invalidates cached AI assessments.
 
 ## Provider wire formats
 
@@ -101,5 +101,7 @@ doubt, `Caution` or `Unknown`; irreplaceable personal data (photos, documents, a
 databases) is `Dangerous`; caches and re-creatable artifacts are `Safe`. When an official cleaning
 route exists (an app setting or an official command such as `xcrun simctl delete unavailable`,
 `brew cleanup`, `docker system prune`), it recommends that route instead of deleting the folder by
-hand. Suggested commands must be real, safe and scoped to the analysed item. The model answers in
-Brazilian Portuguese, the app's UI language (to be revisited with the EN-US locale).
+hand. Suggested commands must be real, safe and scoped to the analysed item. The prompt is written
+in English and ends with an instruction to write the free-text fields in the user's language
+(English or Brazilian Portuguese); the language is part of the evaluator version, so switching it
+produces fresh analyses.

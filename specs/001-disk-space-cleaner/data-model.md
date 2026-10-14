@@ -81,7 +81,7 @@ Persisted: files ≥ `min_file_size` and directories whose total ≥ `min_file_s
 | explanation | text | ≤ 900 characters |
 | details | JSON | `{ summary, recommendation, steps[], commands[] }` (V002) |
 | source | JSON `AssessmentSource` | — |
-| evaluator_version | text | `heuristic-vN` or `<provider>:<model>:prompt-vN`; changes force re-assessment |
+| evaluator_version | text | `heuristic-vN:<locale>` or `<provider>:<model>:prompt-vN:<locale>`; changes force re-assessment |
 | created_at | i64 | — |
 
 Unique index: `(path, size_on_disk, COALESCE(modified_at, -1), inode, evaluator_version)` — acts
@@ -151,7 +151,7 @@ Never updated nor deleted — enforced by SQLite triggers (Principle I).
 | Key | Value | Default |
 |---|---|---|
 | `ai` | `{ provider, model, base_url }` (`provider: null` = local rules only) | `{ provider: null }` |
-| `ui.locale` (planned) | `pt-BR` / `en-US` | system language, else `en-US` |
+| `ui.locale` | `"en-US"` / `"pt-BR"` | unset: the UI follows the system language (Portuguese → pt-BR, anything else → en-US) |
 
 API keys are **not** stored here: they live in the Keychain (`SecretStore`), account
 `ai.<provider>.api_key`, service = the app's bundle identifier.

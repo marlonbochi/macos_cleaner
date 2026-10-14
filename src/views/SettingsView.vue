@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
+import { LOCALE_NAMES, SUPPORTED_LOCALES, isAppLocale } from "@/i18n";
 import { useAiSettingsStore } from "@/stores/aiSettings";
+import { usePreferencesStore } from "@/stores/preferences";
 import type { AiProviderIdDto } from "@/types/generated/AiProviderIdDto";
 
 const ai = useAiSettingsStore();
+const preferences = usePreferencesStore();
 
 onMounted(() => void ai.load());
 
 const isOllama = computed(() => ai.form.provider === "ollama");
 const showUrl = computed(() => isOllama.value || ai.form.customUrl);
+
+function onLocaleChange(event: Event): void {
+  const value = (event.target as HTMLSelectElement).value;
+  if (isAppLocale(value)) void preferences.setLocale(value);
+}
 
 function onProviderChange(event: Event): void {
   const value = (event.target as HTMLSelectElement).value;
@@ -29,6 +37,26 @@ function onCustomUrl(event: Event): void {
     <header>
       <h1>{{ $t("settings.title") }}</h1>
     </header>
+
+    <section class="card">
+      <h2>{{ $t("settings.languageTitle") }}</h2>
+      <div class="field">
+        <select
+          id="locale"
+          :aria-label="$t('settings.languageTitle')"
+          :value="preferences.locale"
+          @change="onLocaleChange"
+        >
+          <option v-for="code in SUPPORTED_LOCALES" :key="code" :value="code">
+            {{ LOCALE_NAMES[code] }}
+          </option>
+        </select>
+        <small class="muted">{{ $t("settings.languageHelp") }}</small>
+        <small v-if="preferences.error" class="error" role="alert">
+          {{ $t("errors.generic", { message: preferences.error }) }}
+        </small>
+      </div>
+    </section>
 
     <section class="card">
       <h2>{{ $t("settings.aiTitle") }}</h2>

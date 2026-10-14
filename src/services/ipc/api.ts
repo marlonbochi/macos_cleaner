@@ -8,6 +8,7 @@ import type { FileFilterDto } from "@/types/generated/FileFilterDto";
 import type { FileSortDto } from "@/types/generated/FileSortDto";
 import type { PageDto } from "@/types/generated/PageDto";
 import type { PermissionsStatusDto } from "@/types/generated/PermissionsStatusDto";
+import type { PreferencesDto } from "@/types/generated/PreferencesDto";
 import type { ScanDefaultsDto } from "@/types/generated/ScanDefaultsDto";
 import type { ScanEvent } from "@/types/generated/ScanEvent";
 import type { SaveAiSettingsInput } from "@/types/generated/SaveAiSettingsInput";
@@ -140,6 +141,18 @@ export class SettingsApi {
   }
 }
 
+export class PreferencesApi {
+  constructor(private readonly transport: Transport) {}
+
+  get(): Promise<PreferencesDto> {
+    return this.transport.invoke("get_preferences");
+  }
+
+  setLocale(locale: string): Promise<void> {
+    return this.transport.invoke("set_locale", { locale });
+  }
+}
+
 /** Facade grouping every backend API. */
 export class Api {
   readonly scan: ScanApi;
@@ -147,6 +160,7 @@ export class Api {
   readonly system: SystemApi;
   readonly analysis: AnalysisApi;
   readonly settings: SettingsApi;
+  readonly preferences: PreferencesApi;
 
   constructor(transport: Transport) {
     this.scan = new ScanApi(transport);
@@ -154,5 +168,6 @@ export class Api {
     this.system = new SystemApi(transport);
     this.analysis = new AnalysisApi(transport);
     this.settings = new SettingsApi(transport);
+    this.preferences = new PreferencesApi(transport);
   }
 }

@@ -5,15 +5,25 @@ import {
   formatDate,
   formatDateTime,
   parentPath,
+  setFormatLocale,
   shortenPath,
 } from "./format";
 
 describe("formatBytes", () => {
-  it("uses base 1000 and pt-BR decimal comma", () => {
+  it("uses base 1000 with the locale's decimal separator", () => {
     expect(formatBytes(0)).toBe("0 B");
     expect(formatBytes(999)).toBe("999 B");
+    expect(formatBytes(1_500_000, "pt-BR")).toBe("1,5 MB");
+    expect(formatBytes(5_000_000_000, "pt-BR")).toBe("5,0 GB");
+    expect(formatBytes(1_500_000, "en-US")).toBe("1.5 MB");
+  });
+
+  it("follows the active format locale by default", () => {
+    setFormatLocale("pt-BR");
     expect(formatBytes(1_500_000)).toBe("1,5 MB");
-    expect(formatBytes(5_000_000_000)).toBe("5,0 GB");
+    setFormatLocale("en-US");
+    expect(formatBytes(1_500_000)).toBe("1.5 MB");
+    expect(formatCount(1234567)).toBe("1,234,567");
   });
 
   it("guards against invalid values", () => {
@@ -24,7 +34,7 @@ describe("formatBytes", () => {
 
 describe("formatCount / dates", () => {
   it("formats counts with thousand separators", () => {
-    expect(formatCount(1234567)).toBe("1.234.567");
+    expect(formatCount(1234567, "pt-BR")).toBe("1.234.567");
   });
 
   it("returns a dash for missing dates", () => {

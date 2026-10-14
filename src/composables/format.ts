@@ -1,7 +1,18 @@
+import { ref } from "vue";
+
+/**
+ * Locale used for numbers and dates. Reactive, so templates re-render when the language changes.
+ */
+const formatLocale = ref("en-US");
+
+export function setFormatLocale(locale: string): void {
+  formatLocale.value = locale;
+}
+
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
 
-/** Human-readable size in base 1000, like Finder (e.g. "1,5 GB"). */
-export function formatBytes(bytes: number, locale = "pt-BR"): string {
+/** Human-readable size in base 1000, like Finder (e.g. "1.5 GB" / "1,5 GB"). */
+export function formatBytes(bytes: number, locale = formatLocale.value): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "—";
   if (bytes < 1000) return `${bytes} B`;
   let value = bytes;
@@ -17,19 +28,25 @@ export function formatBytes(bytes: number, locale = "pt-BR"): string {
   return `${number} ${UNITS[unit]}`;
 }
 
-export function formatCount(value: number, locale = "pt-BR"): string {
+export function formatCount(value: number, locale = formatLocale.value): string {
   return new Intl.NumberFormat(locale).format(value);
 }
 
 /** Formats a Unix timestamp (seconds) as a short date, or "—" when absent. */
-export function formatDate(epochSeconds: number | null | undefined, locale = "pt-BR"): string {
+export function formatDate(
+  epochSeconds: number | null | undefined,
+  locale = formatLocale.value,
+): string {
   if (epochSeconds === null || epochSeconds === undefined) return "—";
   return new Intl.DateTimeFormat(locale, { dateStyle: "short" }).format(
     new Date(epochSeconds * 1000),
   );
 }
 
-export function formatDateTime(epochSeconds: number | null | undefined, locale = "pt-BR"): string {
+export function formatDateTime(
+  epochSeconds: number | null | undefined,
+  locale = formatLocale.value,
+): string {
   if (epochSeconds === null || epochSeconds === undefined) return "—";
   return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(
     new Date(epochSeconds * 1000),

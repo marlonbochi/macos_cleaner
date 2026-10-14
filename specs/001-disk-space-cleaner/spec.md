@@ -290,7 +290,8 @@ cloud.
 - Permanent deletion is out of scope for v1 (Trash only); it may be added later per the
   constitution.
 - Game detection covers popular macOS stores; unknown stores show up as regular apps.
-- The UI is in Brazilian Portuguese in v1, ready for internationalisation.
+- The UI ships in English (US) and Brazilian Portuguese, selectable in Settings; on first launch it
+  follows the system language (English when unsupported).
 - Non-goals for v1: Windows/Linux, scheduled automatic cleaning, content-based duplicate detection.
 
 ## Clarifications

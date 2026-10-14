@@ -27,7 +27,8 @@ function backend(initial = aiSettings(), models: { id: string; label: string }[]
         ),
       });
     })
-    .on("test_ai_connection", () => ({ provider: "anthropic", model: "claude-opus-5-5" }));
+    .on("test_ai_connection", () => ({ provider: "anthropic", model: "claude-opus-5-5" }))
+    .on("set_locale", () => undefined);
   provideApi(transport);
   return transport;
 }
@@ -115,5 +116,23 @@ describe("SettingsView", () => {
     await wrapper.find('[data-test="load-models"]').trigger("click");
     await flushPromises();
     expect(wrapper.find('[data-test="models-error"]').text()).toContain("rejected the API key");
+  });
+
+  it("switches the interface language and saves it", async () => {
+    const transport = backend();
+    const { wrapper } = await mountWithPlugins(SettingsView, {}, { path: "/settings" });
+    await flushPromises();
+    expect(wrapper.find("h1").text()).toBe("Configurações");
+    expect(wrapper.findAll("#locale option").map((o) => o.text())).toEqual([
+      "English (US)",
+      "Português (Brasil)",
+    ]);
+
+    await wrapper.find("#locale").setValue("en-US");
+    await flushPromises();
+
+    expect(wrapper.find("h1").text()).toBe("Settings");
+    expect(wrapper.text()).toContain("Artificial intelligence");
+    expect(transport.lastCall("set_locale")).toEqual({ locale: "en-US" });
   });
 });

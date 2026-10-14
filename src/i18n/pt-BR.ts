@@ -1,4 +1,6 @@
-export default {
+import type { MessageSchema } from "./index";
+
+const ptBR: MessageSchema = {
   app: {
     name: "macOS Cleaner",
   },
@@ -139,6 +141,9 @@ export default {
   },
   settings: {
     title: "Configurações",
+    languageTitle: "Idioma",
+    languageHelp:
+      "Usado na interface e nas novas análises. Na primeira abertura, o app segue o idioma do sistema.",
     aiTitle: "Inteligência artificial",
     aiSubtitle:
       "Escolha um provedor para analisar itens com IA. Sem provedor, o app usa regras locais.",
@@ -181,3 +186,5 @@ export default {
     generic: "Algo deu errado: {message}",
   },
 };
+
+export default ptBR;
