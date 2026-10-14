@@ -20,6 +20,7 @@ use crate::analysis::prompt::{
 };
 use crate::analysis::verdict::{Verdict, protected_verdict};
 use crate::domain::file_entry::{FileEntry, FileId, FileKind, FileRecord};
+use crate::domain::locale::Locale;
 use crate::domain::risk::{AssessmentKey, AssessmentSource, RiskAssessment, RiskLevel};
 use crate::error::CoreError;
 use crate::ports::Clock;
@@ -28,6 +29,7 @@ use crate::ports::repository::{
     AssessmentRepository, FileEntryRepository, FileFilter, FileQuery, FileSort,
 };
 use crate::services::ai_settings_service::AiSettingsService;
+use crate::services::preferences_service::PreferencesService;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnalysisOutcome {
@@ -42,6 +44,7 @@ pub struct AnalysisService {
     files: Arc<dyn FileEntryRepository>,
     assessments: Arc<dyn AssessmentRepository>,
     settings: AiSettingsService,
+    preferences: PreferencesService,
     heuristics: HeuristicAnalyzer,
     clock: Arc<dyn Clock>,
     home: PathBuf,
@@ -58,6 +61,7 @@ impl AnalysisService {
         files: Arc<dyn FileEntryRepository>,
         assessments: Arc<dyn AssessmentRepository>,
         settings: AiSettingsService,
+        preferences: PreferencesService,
         clock: Arc<dyn Clock>,
         home: &Path,
     ) -> Self {
@@ -65,6 +69,7 @@ impl AnalysisService {
             files,
             assessments,
             settings,
+            preferences,
             heuristics: HeuristicAnalyzer::new(home),
             clock,
             home: home.to_path_buf(),
@@ -89,6 +94,8 @@ impl AnalysisService {
         let mut entries = self.files.get_many(ids)?;
         entries.sort_by_key(|e| ids.iter().position(|id| *id == e.id));
         let now = self.clock.now();
+        // Analyses are written in the user's language; it is part of the cache key.
+        let locale = self.preferences.locale();
 
         // A misconfigured provider (e.g. missing key) is reported, not fatal.
         let (provider, setup_error) = match self.settings.provider() {
@@ -96,10 +103,10 @@ impl AnalysisService {
             Err(e) => (None, Some(e.to_string())),
         };
         let version = provider.as_ref().map_or_else(
-            || HEURISTIC_VERSION.to_owned(),
+            || rules_version(locale),
             |p| {
                 let (name, model) = p.descriptor();
-                format!("{name}:{model}:prompt-v{PROMPT_VERSION}")
+                format!("{name}:{model}:prompt-v{PROMPT_VERSION}:{}", locale.tag())
             },
         );
 
@@ -108,7 +115,7 @@ impl AnalysisService {
         for entry in &entries {
             let record = &entry.record;
             if record.is_protected {
-                let assessment = protected_verdict(&record.path).into_assessment(
+                let assessment = protected_verdict(&record.path, locale).into_assessment(
                     record,
                     AssessmentSource::ProtectedRule,
                     "protected".into(),
@@ -142,24 +149,30 @@ impl AnalysisService {
         let fresh: Vec<AnalysisOutcome> = match provider {
             None => pending
                 .iter()
-                .map(|e| self.rules_outcome(e, now, setup_error.clone()))
+                .map(|e| self.rules_outcome(e, locale, now, setup_error.clone()))
                 .collect(),
             Some(provider) if pending.len() == 1 => {
                 let entry = pending[0];
-                vec![match self.ask_ai(provider.as_ref(), entry) {
+                vec![match self.ask_ai(provider.as_ref(), entry, locale) {
                     Ok(verdict) => {
-                        self.ai_outcome(provider.as_ref(), entry, verdict, &version, now)
+                        self.ai_outcome(provider.as_ref(), entry, verdict, &version, locale, now)
                     }
                     Err(e) => {
                         tracing::warn!(error = %e, "AI analysis failed, using local rules");
-                        self.rules_outcome(entry, now, Some(e.to_string()))
+                        self.rules_outcome(entry, locale, now, Some(e.to_string()))
                     }
                 }]
             }
             Some(provider) => {
                 let mut out = Vec::with_capacity(pending.len());
                 for chunk in pending.chunks(MAX_BATCH) {
-                    out.extend(self.analyze_batch(provider.as_ref(), chunk, &version, now)?);
+                    out.extend(self.analyze_batch(
+                        provider.as_ref(),
+                        chunk,
+                        &version,
+                        locale,
+                        now,
+                    )?);
                 }
                 out
             }
@@ -179,6 +192,7 @@ impl AnalysisService {
         provider: &dyn AiProvider,
         chunk: &[&FileEntry],
         version: &str,
+        locale: Locale,
         now: i64,
     ) -> Result<Vec<AnalysisOutcome>, CoreError> {
         let children: Vec<Vec<FileRecord>> = chunk
@@ -200,7 +214,7 @@ impl AnalysisService {
         let user = batch_user_message(&inputs, &self.home);
         let answer = provider
             .complete_json(&StructuredRequest {
-                system: system_prompt(),
+                system: &system_prompt(locale),
                 user: &user,
                 schema: &schema,
                 schema_name: BATCH_SCHEMA_NAME,
@@ -212,12 +226,15 @@ impl AnalysisService {
                 .iter()
                 .zip(&ids)
                 .map(|(entry, id)| match by_id.remove(id) {
-                    Some(Ok(verdict)) => self.ai_outcome(provider, entry, verdict, version, now),
-                    Some(Err(e)) => self.rules_outcome(entry, now, Some(e.to_string())),
+                    Some(Ok(verdict)) => {
+                        self.ai_outcome(provider, entry, verdict, version, locale, now)
+                    }
+                    Some(Err(e)) => self.rules_outcome(entry, locale, now, Some(e.to_string())),
                     None => self.rules_outcome(
                         entry,
+                        locale,
                         now,
-                        Some("a IA não respondeu sobre este item".into()),
+                        Some("the AI did not return an analysis for this item".into()),
                     ),
                 })
                 .collect(),
@@ -225,7 +242,7 @@ impl AnalysisService {
                 tracing::warn!(error = %e, items = chunk.len(), "batch AI analysis failed");
                 chunk
                     .iter()
-                    .map(|entry| self.rules_outcome(entry, now, Some(e.to_string())))
+                    .map(|entry| self.rules_outcome(entry, locale, now, Some(e.to_string())))
                     .collect()
             }
         })
@@ -237,10 +254,11 @@ impl AnalysisService {
         entry: &FileEntry,
         verdict: Verdict,
         version: &str,
+        locale: Locale,
         now: i64,
     ) -> AnalysisOutcome {
         let (name, model) = provider.descriptor();
-        let rules = self.heuristics.analyze(&entry.record);
+        let rules = self.heuristics.analyze(&entry.record, locale);
         let assessment = apply_safety_floor(verdict, &rules).into_assessment(
             &entry.record,
             AssessmentSource::Ai {
@@ -260,15 +278,19 @@ impl AnalysisService {
     fn rules_outcome(
         &self,
         entry: &FileEntry,
+        locale: Locale,
         now: i64,
         ai_error: Option<String>,
     ) -> AnalysisOutcome {
-        let assessment = self.heuristics.analyze(&entry.record).into_assessment(
-            &entry.record,
-            AssessmentSource::Heuristic,
-            HEURISTIC_VERSION.into(),
-            now,
-        );
+        let assessment = self
+            .heuristics
+            .analyze(&entry.record, locale)
+            .into_assessment(
+                &entry.record,
+                AssessmentSource::Heuristic,
+                rules_version(locale),
+                now,
+            );
         AnalysisOutcome {
             file_id: entry.id,
             assessment,
@@ -295,14 +317,19 @@ impl AnalysisService {
             .collect())
     }
 
-    fn ask_ai(&self, provider: &dyn AiProvider, entry: &FileEntry) -> Result<Verdict, AiError> {
+    fn ask_ai(
+        &self,
+        provider: &dyn AiProvider,
+        entry: &FileEntry,
+        locale: Locale,
+    ) -> Result<Verdict, AiError> {
         let children = self
             .children_of(entry, MAX_CHILDREN)
             .map_err(|e| AiError::InvalidConfig(e.to_string()))?;
         let schema = response_schema();
         let user = user_message(&entry.record, &children, &self.home);
         let reply = provider.complete_json(&StructuredRequest {
-            system: system_prompt(),
+            system: &system_prompt(locale),
             user: &user,
             schema: &schema,
             schema_name: SCHEMA_NAME,
@@ -333,6 +360,11 @@ impl AnalysisService {
             .map(|c| c.record)
             .collect())
     }
+}
+
+/// Evaluator version of the local rules for a language.
+fn rules_version(locale: Locale) -> String {
+    format!("{HEURISTIC_VERSION}:{}", locale.tag())
 }
 
 /// Items the local rules know to be essential never drop below `Caution` (SC-006).
@@ -368,6 +400,7 @@ mod tests {
 
     struct Harness {
         service: AnalysisService,
+        prefs: PreferencesService,
         settings: AiSettingsService,
         factory: Arc<FakeAiFactory>,
         files: Arc<InMemoryFileEntryRepository>,
@@ -426,15 +459,18 @@ mod tests {
             Arc::new(InMemorySecretStore::default()),
             factory.clone(),
         );
+        let prefs = PreferencesService::new(Arc::new(InMemorySettingsRepository::default()));
         let service = AnalysisService::new(
             files.clone(),
             Arc::new(InMemoryAssessmentRepository::default()),
             settings.clone(),
+            prefs.clone(),
             Arc::new(FakeClock::at(100)),
             Path::new(HOME),
         );
         Harness {
             service,
+            prefs,
             settings,
             factory,
             files,
@@ -474,6 +510,40 @@ mod tests {
         let badges = h.service.latest_for(&[FileId(1), FileId(2)]).unwrap();
         assert_eq!(badges.len(), 1);
         assert_eq!(badges[0].0, FileId(1));
+    }
+
+    #[test]
+    fn analyses_follow_the_saved_language_and_are_cached_per_language() {
+        let h = harness(FakeAiFactory::replying(json!({})));
+        let en = h.service.analyze(FileId(1), false).unwrap();
+        assert_eq!(
+            en.assessment.summary,
+            "Xcode simulators and runtimes (CoreSimulator)."
+        );
+        assert_eq!(en.assessment.evaluator_version, "heuristic-v2:en-US");
+
+        h.prefs.set_locale(Locale::PtBr).unwrap();
+        let pt = h.service.analyze(FileId(1), false).unwrap();
+        assert_eq!(
+            pt.assessment.summary,
+            "Simuladores e runtimes do Xcode (CoreSimulator)."
+        );
+        assert_eq!(pt.assessment.evaluator_version, "heuristic-v2:pt-BR");
+    }
+
+    #[test]
+    fn ai_is_asked_to_answer_in_the_saved_language() {
+        let h = harness(FakeAiFactory::responding(|req| {
+            assert!(req.system.ends_with("in Brazilian Portuguese."));
+            Ok(ai_reply("Caution"))
+        }));
+        enable_claude(&h);
+        h.prefs.set_locale(Locale::PtBr).unwrap();
+        let out = h.service.analyze(FileId(1), false).unwrap();
+        assert_eq!(
+            out.assessment.evaluator_version,
+            "fake:fake-model:prompt-v2:pt-BR"
+        );
     }
 
     #[test]
@@ -695,7 +765,7 @@ mod tests {
         assert_eq!(out[2].assessment.source, AssessmentSource::Heuristic);
         assert_eq!(
             out[2].ai_error.as_deref(),
-            Some("a IA não respondeu sobre este item")
+            Some("the AI did not return an analysis for this item")
         );
     }
 

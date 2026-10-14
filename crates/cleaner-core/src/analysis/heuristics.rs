@@ -2,17 +2,19 @@
 //! AI answers (an item the rules know to be essential is never downgraded to Safe).
 //!
 //! Each rule is a small Strategy: a matcher plus the verdict it produces. Order matters —
-//! the first matching rule wins, so specific rules come before generic ones.
+//! the first matching rule wins, so specific rules come before generic ones. Every text exists
+//! in English and Brazilian Portuguese; the caller picks the language.
 
 use std::path::Path;
 
 use super::prompt::display_path;
 use super::verdict::Verdict;
 use crate::domain::file_entry::{FileKind, FileRecord};
+use crate::domain::locale::Locale;
 use crate::domain::risk::{Recommendation, RiskCategory, RiskLevel, SuggestedCommand};
 
 /// Bump when the rules change: cached rule-based assessments are then recomputed.
-pub const HEURISTIC_VERSION: &str = "heuristic-v1";
+pub const HEURISTIC_VERSION: &str = "heuristic-v2";
 
 /// Normalised view of an item used by the matchers.
 struct Item<'a> {
@@ -39,7 +41,7 @@ impl Item<'_> {
 
 struct Rule {
     matches: fn(&Item<'_>) -> bool,
-    verdict: fn(&Item<'_>) -> Verdict,
+    verdict: fn(&Item<'_>, Locale) -> Verdict,
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +57,7 @@ impl HeuristicAnalyzer {
     }
 
     /// Always returns a verdict; `Unknown` when no rule applies.
-    pub fn analyze(&self, record: &FileRecord) -> Verdict {
+    pub fn analyze(&self, record: &FileRecord, locale: Locale) -> Verdict {
         let item = Item {
             path: display_path(&record.path, &self.home).to_lowercase(),
             ext: record.extension(),
@@ -65,33 +67,47 @@ impl HeuristicAnalyzer {
         RULES
             .iter()
             .find(|rule| (rule.matches)(&item))
-            .map_or_else(|| unknown(&item), |rule| (rule.verdict)(&item))
+            .map_or_else(
+                || unknown(&item, locale),
+                |rule| (rule.verdict)(&item, locale),
+            )
             .sanitized()
     }
 }
 
+/// A localised text pair: `(english, portuguese)`.
+type Text = (&'static str, &'static str);
+
 fn v(
+    l: Locale,
     level: RiskLevel,
     category: RiskCategory,
-    summary: &str,
-    explanation: &str,
+    summary: Text,
+    explanation: Text,
     recommendation: Recommendation,
 ) -> Verdict {
     Verdict {
         level,
         category,
-        summary: summary.into(),
-        explanation: explanation.into(),
+        summary: l.pick(summary.0, summary.1).to_owned(),
+        explanation: l.pick(explanation.0, explanation.1).to_owned(),
         recommendation,
         steps: vec![],
         commands: vec![],
     }
 }
 
-fn cmd(command: &str, description: &str) -> SuggestedCommand {
+fn steps(l: Locale, items: &[Text]) -> Vec<String> {
+    items
+        .iter()
+        .map(|(en, pt)| l.pick(en, pt).to_owned())
+        .collect()
+}
+
+fn cmd(l: Locale, command: &str, description: Text) -> SuggestedCommand {
     SuggestedCommand {
         command: command.into(),
-        description: description.into(),
+        description: l.pick(description.0, description.1).to_owned(),
     }
 }
 
@@ -113,74 +129,137 @@ static RULES: &[Rule] = &[
             i.has_component("photos library.photoslibrary")
                 || i.ext.as_deref() == Some("photoslibrary")
         },
-        verdict: |_| {
-            Verdict {
-            steps: vec![
-                "Fotos › Ajustes › iCloud › ative Fotos do iCloud".into(),
-                "Escolha \"Otimizar Armazenamento do Mac\" para manter só versões reduzidas no disco".into(),
-            ],
-            ..v(RiskLevel::Dangerous, RiskCategory::Media,
-                "Biblioteca do app Fotos.",
-                "Contém suas fotos e vídeos e o banco de dados do Fotos. Apagar a pasta destrói a biblioteca.",
-                Recommendation::MoveToCloudOrExternal)
-        }
+        verdict: |_, l| Verdict {
+            steps: steps(
+                l,
+                &[
+                    (
+                        "Photos › Settings › iCloud › turn on iCloud Photos",
+                        "Fotos › Ajustes › iCloud › ative Fotos do iCloud",
+                    ),
+                    (
+                        "Choose \"Optimize Mac Storage\" to keep only smaller versions on disk",
+                        "Escolha \"Otimizar Armazenamento do Mac\" para manter só versões reduzidas no disco",
+                    ),
+                ],
+            ),
+            ..v(
+                l,
+                RiskLevel::Dangerous,
+                RiskCategory::Media,
+                ("Photos app library.", "Biblioteca do app Fotos."),
+                (
+                    "It holds your photos and videos and the Photos database. Deleting the folder destroys the library.",
+                    "Contém suas fotos e vídeos e o banco de dados do Fotos. Apagar a pasta destrói a biblioteca.",
+                ),
+                Recommendation::MoveToCloudOrExternal,
+            )
         },
     },
     Rule {
         matches: |i| i.under("~/library/mail") || i.under("~/library/messages"),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Dangerous,
                 RiskCategory::AppData,
-                "Dados do Mail ou do Mensagens.",
-                "Guarda mensagens e anexos. Remova anexos pelo próprio app em vez de apagar a pasta.",
+                ("Mail or Messages data.", "Dados do Mail ou do Mensagens."),
+                (
+                    "It stores messages and attachments. Remove attachments from the app itself instead of deleting the folder.",
+                    "Guarda mensagens e anexos. Remova anexos pelo próprio app em vez de apagar a pasta.",
+                ),
                 Recommendation::UseAppOrCommand,
             )
         },
     },
     Rule {
         matches: |i| i.under("~/library/developer/xcode/deriveddata"),
-        verdict: |_| Verdict {
-            steps: vec!["Feche o Xcode antes de apagar".into()],
+        verdict: |_, l| Verdict {
+            steps: steps(
+                l,
+                &[(
+                    "Quit Xcode before deleting",
+                    "Feche o Xcode antes de apagar",
+                )],
+            ),
             commands: vec![cmd(
+                l,
                 "rm -rf ~/Library/Developer/Xcode/DerivedData/*",
-                "Apaga os artefatos de build; o Xcode recria no próximo build",
+                (
+                    "Deletes build artifacts; Xcode recreates them on the next build",
+                    "Apaga os artefatos de build; o Xcode recria no próximo build",
+                ),
             )],
             ..v(
+                l,
                 RiskLevel::Safe,
                 RiskCategory::BuildArtifact,
-                "Artefatos de build do Xcode (DerivedData).",
-                "São recriados automaticamente na próxima compilação; só o primeiro build fica mais lento.",
+                (
+                    "Xcode build artifacts (DerivedData).",
+                    "Artefatos de build do Xcode (DerivedData).",
+                ),
+                (
+                    "They are recreated automatically on the next build; only the first build gets slower.",
+                    "São recriados automaticamente na próxima compilação; só o primeiro build fica mais lento.",
+                ),
                 Recommendation::DeleteSafely,
             )
         },
     },
     Rule {
         matches: |i| i.under("~/library/developer/coresimulator"),
-        verdict: |_| Verdict {
-            steps: vec![
-                "Xcode › Settings › Platforms: remova runtimes de iOS/watchOS que não usa".into(),
-                "Window › Devices and Simulators: apague simuladores antigos".into(),
-            ],
+        verdict: |_, l| Verdict {
+            steps: steps(
+                l,
+                &[
+                    (
+                        "Xcode › Settings › Platforms: remove iOS/watchOS runtimes you no longer use",
+                        "Xcode › Settings › Platforms: remova runtimes de iOS/watchOS que não usa",
+                    ),
+                    (
+                        "Window › Devices and Simulators: delete old simulators",
+                        "Window › Devices and Simulators: apague simuladores antigos",
+                    ),
+                ],
+            ),
             commands: vec![
                 cmd(
+                    l,
                     "xcrun simctl delete unavailable",
-                    "Remove simuladores de runtimes que não estão mais instalados",
+                    (
+                        "Removes simulators whose runtimes are no longer installed",
+                        "Remove simuladores de runtimes que não estão mais instalados",
+                    ),
                 ),
                 cmd(
+                    l,
                     "xcrun simctl runtime list",
-                    "Lista os runtimes de simulador instalados e seus tamanhos",
+                    (
+                        "Lists the installed simulator runtimes and their sizes",
+                        "Lista os runtimes de simulador instalados e seus tamanhos",
+                    ),
                 ),
                 cmd(
+                    l,
                     "xcrun simctl runtime delete <id>",
-                    "Remove um runtime específico listado acima",
+                    (
+                        "Removes a specific runtime listed above",
+                        "Remove um runtime específico listado acima",
+                    ),
                 ),
             ],
             ..v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::VmImage,
-                "Simuladores e runtimes do Xcode (CoreSimulator).",
-                "Apagar a pasta à mão pode corromper o estado do Xcode e perde dados de apps instalados nos simuladores. Use as ferramentas do Xcode.",
+                (
+                    "Xcode simulators and runtimes (CoreSimulator).",
+                    "Simuladores e runtimes do Xcode (CoreSimulator).",
+                ),
+                (
+                    "Deleting the folder by hand can corrupt Xcode's state and loses the data of apps installed in the simulators. Use Xcode's tools.",
+                    "Apagar a pasta à mão pode corromper o estado do Xcode e perde dados de apps instalados nos simuladores. Use as ferramentas do Xcode.",
+                ),
                 Recommendation::UseAppOrCommand,
             )
         },
@@ -190,24 +269,38 @@ static RULES: &[Rule] = &[
             i.under("~/library/developer/xcode/ios devicesupport")
                 || i.under("~/library/developer/xcode/watchos devicesupport")
         },
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Safe,
                 RiskCategory::Cache,
-                "Símbolos de depuração de dispositivos (DeviceSupport).",
-                "São baixados de novo quando você conecta o dispositivo ao Xcode.",
+                (
+                    "Device debug symbols (DeviceSupport).",
+                    "Símbolos de depuração de dispositivos (DeviceSupport).",
+                ),
+                (
+                    "They are downloaded again when you connect the device to Xcode.",
+                    "São baixados de novo quando você conecta o dispositivo ao Xcode.",
+                ),
                 Recommendation::DeleteSafely,
             )
         },
     },
     Rule {
         matches: |i| i.under("~/library/developer/xcode/archives"),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::Backup,
-                "Archives de apps gerados pelo Xcode.",
-                "Necessários para simbolicar crashes de versões publicadas. Apague só versões antigas, pelo Organizer.",
+                (
+                    "App archives produced by Xcode.",
+                    "Archives de apps gerados pelo Xcode.",
+                ),
+                (
+                    "Needed to symbolicate crashes from published versions. Delete only old versions, from the Organizer.",
+                    "Necessários para simbolicar crashes de versões publicadas. Apague só versões antigas, pelo Organizer.",
+                ),
                 Recommendation::UseAppOrCommand,
             )
         },
@@ -216,60 +309,105 @@ static RULES: &[Rule] = &[
         matches: |i| {
             i.under("~/library/containers/com.docker.docker") || i.path.ends_with("docker.raw")
         },
-        verdict: |_| Verdict {
-            steps: vec!["Docker Desktop › Settings › Resources: reduza o limite de disco".into()],
+        verdict: |_, l| Verdict {
+            steps: steps(
+                l,
+                &[(
+                    "Docker Desktop › Settings › Resources: lower the disk limit",
+                    "Docker Desktop › Settings › Resources: reduza o limite de disco",
+                )],
+            ),
             commands: vec![
                 cmd(
+                    l,
                     "docker system df",
-                    "Mostra quanto espaço imagens, containers e volumes ocupam",
+                    (
+                        "Shows how much space images, containers and volumes use",
+                        "Mostra quanto espaço imagens, containers e volumes ocupam",
+                    ),
                 ),
                 cmd(
+                    l,
                     "docker system prune -a",
-                    "Remove imagens, containers e redes não usados (pede confirmação)",
+                    (
+                        "Removes unused images, containers and networks (asks for confirmation)",
+                        "Remove imagens, containers e redes não usados (pede confirmação)",
+                    ),
                 ),
             ],
             ..v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::VmImage,
-                "Disco virtual do Docker Desktop.",
-                "Contém imagens, containers e volumes. Apagar o arquivo perde volumes com dados; limpe pelo Docker.",
+                (
+                    "Docker Desktop virtual disk.",
+                    "Disco virtual do Docker Desktop.",
+                ),
+                (
+                    "It holds images, containers and volumes. Deleting the file loses volumes with data; clean up through Docker.",
+                    "Contém imagens, containers e volumes. Apagar o arquivo perde volumes com dados; limpe pelo Docker.",
+                ),
                 Recommendation::UseAppOrCommand,
             )
         },
     },
     Rule {
         matches: |i| i.under("~/library/application support/mobilesync/backup"),
-        verdict: |_| Verdict {
-            steps: vec!["Finder › selecione o iPhone › Gerenciar Backups".into()],
+        verdict: |_, l| Verdict {
+            steps: steps(
+                l,
+                &[(
+                    "Finder › select the iPhone › Manage Backups",
+                    "Finder › selecione o iPhone › Gerenciar Backups",
+                )],
+            ),
             ..v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::Backup,
-                "Backups locais de iPhone/iPad.",
-                "Podem ser o único backup do aparelho. Confirme que existe backup no iCloud antes de remover.",
+                (
+                    "Local iPhone/iPad backups.",
+                    "Backups locais de iPhone/iPad.",
+                ),
+                (
+                    "They may be the device's only backup. Make sure an iCloud backup exists before removing them.",
+                    "Podem ser o único backup do aparelho. Confirme que existe backup no iCloud antes de remover.",
+                ),
                 Recommendation::UseAppOrCommand,
             )
         },
     },
     Rule {
         matches: |i| i.under("~/library/mobile documents") || i.under("~/library/cloudstorage"),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::UserDocument,
-                "Pasta sincronizada com a nuvem.",
-                "Apagar aqui apaga também na nuvem. Para liberar espaço, use \"Remover Download\" no Finder e mantenha só na nuvem.",
+                (
+                    "Folder synced with the cloud.",
+                    "Pasta sincronizada com a nuvem.",
+                ),
+                (
+                    "Deleting here also deletes it in the cloud. To free space, use \"Remove Download\" in Finder and keep it only in the cloud.",
+                    "Apagar aqui apaga também na nuvem. Para liberar espaço, use \"Remover Download\" no Finder e mantenha só na nuvem.",
+                ),
                 Recommendation::MoveToCloudOrExternal,
             )
         },
     },
     Rule {
         matches: |i| i.has_component(".trash"),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Safe,
                 RiskCategory::Other,
-                "Itens na Lixeira.",
-                "Já foram descartados. Esvaziar a Lixeira libera o espaço.",
+                ("Items in the Trash.", "Itens na Lixeira."),
+                (
+                    "They were already discarded. Emptying the Trash frees the space.",
+                    "Já foram descartados. Esvaziar a Lixeira libera o espaço.",
+                ),
                 Recommendation::DeleteSafely,
             )
         },
@@ -280,12 +418,19 @@ static RULES: &[Rule] = &[
                 || i.has_component(".gradle")
                 || (i.has_component("target") && i.kind != FileKind::File)
         },
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Safe,
                 RiskCategory::BuildArtifact,
-                "Dependências ou artefatos de build de um projeto.",
-                "Podem ser recriados pelo gerenciador de pacotes (npm install, cargo build, gradle).",
+                (
+                    "A project's dependencies or build artifacts.",
+                    "Dependências ou artefatos de build de um projeto.",
+                ),
+                (
+                    "They can be recreated by the package manager (npm install, cargo build, gradle).",
+                    "Podem ser recriados pelo gerenciador de pacotes (npm install, cargo build, gradle).",
+                ),
                 Recommendation::DeleteSafely,
             )
         },
@@ -294,120 +439,178 @@ static RULES: &[Rule] = &[
         matches: |i| {
             i.under("~/library/caches") || i.under("/library/caches") || i.has_component("caches")
         },
-        verdict: |_| Verdict {
-            steps: vec!["Feche o app correspondente antes de apagar".into()],
+        verdict: |_, l| Verdict {
+            steps: steps(
+                l,
+                &[(
+                    "Quit the related app before deleting",
+                    "Feche o app correspondente antes de apagar",
+                )],
+            ),
             ..v(
+                l,
                 RiskLevel::Safe,
                 RiskCategory::Cache,
-                "Cache de aplicativo.",
-                "Caches são recriados automaticamente; o app pode ficar mais lento na primeira abertura.",
+                ("Application cache.", "Cache de aplicativo."),
+                (
+                    "Caches are recreated automatically; the app may be slower the first time it opens.",
+                    "Caches são recriados automaticamente; o app pode ficar mais lento na primeira abertura.",
+                ),
                 Recommendation::DeleteSafely,
             )
         },
     },
     Rule {
         matches: |i| i.under("~/library/logs") || i.under("/library/logs") || i.ext_in(&["log"]),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Safe,
                 RiskCategory::Log,
-                "Arquivos de log.",
-                "Registros de diagnóstico; não são necessários para os apps funcionarem.",
+                ("Log files.", "Arquivos de log."),
+                (
+                    "Diagnostic records; apps do not need them to work.",
+                    "Registros de diagnóstico; não são necessários para os apps funcionarem.",
+                ),
                 Recommendation::DeleteSafely,
             )
         },
     },
     Rule {
         matches: |i| i.kind == FileKind::Package && i.ext.as_deref() == Some("app"),
-        verdict: |_| Verdict {
-            steps: vec![
-                "Arraste o app para o Lixo ou use o desinstalador do fabricante".into(),
-                "Os dados do app ficam em ~/Library e podem ser revistos depois".into(),
-            ],
+        verdict: |_, l| Verdict {
+            steps: steps(
+                l,
+                &[
+                    (
+                        "Drag the app to the Trash or use the vendor's uninstaller",
+                        "Arraste o app para o Lixo ou use o desinstalador do fabricante",
+                    ),
+                    (
+                        "The app's data stays in ~/Library and can be reviewed afterwards",
+                        "Os dados do app ficam em ~/Library e podem ser revistos depois",
+                    ),
+                ],
+            ),
             ..v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::AppBundle,
-                "Aplicativo instalado.",
-                "Remover o app não apaga documentos, mas você precisará reinstalá-lo para usar de novo.",
+                ("Installed application.", "Aplicativo instalado."),
+                (
+                    "Removing the app does not delete documents, but you will need to reinstall it to use it again.",
+                    "Remover o app não apaga documentos, mas você precisará reinstalá-lo para usar de novo.",
+                ),
                 Recommendation::ReviewManually,
             )
         },
     },
     Rule {
         matches: |i| i.ext_in(INSTALLERS),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Safe,
                 RiskCategory::Installer,
-                "Instalador ou imagem de disco.",
-                "Depois que o app foi instalado, o instalador geralmente pode ser baixado de novo.",
+                ("Installer or disk image.", "Instalador ou imagem de disco."),
+                (
+                    "Once the app is installed, the installer can usually be downloaded again.",
+                    "Depois que o app foi instalado, o instalador geralmente pode ser baixado de novo.",
+                ),
                 Recommendation::DeleteSafely,
             )
         },
     },
     Rule {
         matches: |i| i.ext_in(VM_IMAGES),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::VmImage,
-                "Imagem de máquina virtual.",
-                "Contém um sistema inteiro com possíveis dados. Exclua pela ferramenta de VM se não usar mais.",
+                ("Virtual machine image.", "Imagem de máquina virtual."),
+                (
+                    "It contains a whole system with possible data. Delete it from the VM tool if you no longer use it.",
+                    "Contém um sistema inteiro com possíveis dados. Exclua pela ferramenta de VM se não usar mais.",
+                ),
                 Recommendation::MoveToCloudOrExternal,
             )
         },
     },
     Rule {
         matches: |i| i.ext_in(ARCHIVES),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::Archive,
-                "Arquivo compactado.",
-                "Pode ser um backup ou o único exemplar de algo. Verifique o conteúdo antes.",
+                ("Compressed archive.", "Arquivo compactado."),
+                (
+                    "It may be a backup or the only copy of something. Check its contents first.",
+                    "Pode ser um backup ou o único exemplar de algo. Verifique o conteúdo antes.",
+                ),
                 Recommendation::ReviewManually,
             )
         },
     },
     Rule {
         matches: |i| i.ext_in(MEDIA),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::Media,
-                "Arquivo de mídia pessoal.",
-                "Fotos, vídeos e áudios costumam ser insubstituíveis. Considere mover para a nuvem ou um disco externo.",
+                ("Personal media file.", "Arquivo de mídia pessoal."),
+                (
+                    "Photos, videos and audio are often irreplaceable. Consider moving them to the cloud or an external drive.",
+                    "Fotos, vídeos e áudios costumam ser insubstituíveis. Considere mover para a nuvem ou um disco externo.",
+                ),
                 Recommendation::MoveToCloudOrExternal,
             )
         },
     },
     Rule {
         matches: |i| i.ext_in(DOCUMENTS),
-        verdict: |_| {
+        verdict: |_, l| {
             v(
+                l,
                 RiskLevel::Caution,
                 RiskCategory::UserDocument,
-                "Documento.",
-                "Documentos podem ser únicos. Confirme se há cópia antes de apagar.",
+                ("Document.", "Documento."),
+                (
+                    "Documents may be unique. Make sure there is a copy before deleting.",
+                    "Documentos podem ser únicos. Confirme se há cópia antes de apagar.",
+                ),
                 Recommendation::ReviewManually,
             )
         },
     },
 ];
 
-fn unknown(item: &Item<'_>) -> Verdict {
-    let what = match item.kind {
-        FileKind::File => "Arquivo",
-        FileKind::Directory => "Pasta",
-        FileKind::Package => "Pacote",
+fn unknown(item: &Item<'_>, l: Locale) -> Verdict {
+    let name = item.record.name();
+    let summary = match (item.kind, l) {
+        (FileKind::File, Locale::EnUs) => format!("File with no known local rule ({name})."),
+        (FileKind::Directory, Locale::EnUs) => format!("Folder with no known local rule ({name})."),
+        (FileKind::Package, Locale::EnUs) => format!("Package with no known local rule ({name})."),
+        (FileKind::File, Locale::PtBr) => format!("Arquivo sem regra local conhecida ({name})."),
+        (FileKind::Directory, Locale::PtBr) => format!("Pasta sem regra local conhecida ({name})."),
+        (FileKind::Package, Locale::PtBr) => format!("Pacote sem regra local conhecida ({name})."),
     };
-    v(
-        RiskLevel::Unknown,
-        RiskCategory::Other,
-        &format!("{what} sem regra local conhecida ({}).", item.record.name()),
-        "As regras locais não reconhecem este item. Configure um provedor de IA para uma análise detalhada, ou verifique manualmente.",
-        Recommendation::ReviewManually,
-    )
+    Verdict {
+        summary,
+        ..v(
+            l,
+            RiskLevel::Unknown,
+            RiskCategory::Other,
+            ("", ""),
+            (
+                "The local rules do not recognise this item. Configure an AI provider for a detailed analysis, or check it manually.",
+                "As regras locais não reconhecem este item. Configure um provedor de IA para uma análise detalhada, ou verifique manualmente.",
+            ),
+            Recommendation::ReviewManually,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -431,7 +634,7 @@ mod tests {
             is_hardlink_dup: false,
             is_protected: false,
         };
-        HeuristicAnalyzer::new(Path::new("/Users/alice")).analyze(&record)
+        HeuristicAnalyzer::new(Path::new("/Users/alice")).analyze(&record, Locale::PtBr)
     }
 
     #[test]
@@ -504,6 +707,35 @@ mod tests {
             analyze("/Users/alice/code/target", FileKind::Directory).level,
             RiskLevel::Safe
         );
+    }
+
+    #[test]
+    fn texts_follow_the_requested_language() {
+        let record = FileRecord {
+            path: PathBuf::from("/Users/alice/Library/Developer/CoreSimulator"),
+            kind: FileKind::Directory,
+            size_on_disk: ByteSize::new(1),
+            apparent_size: ByteSize::new(1),
+            file_count: 1,
+            created_at: None,
+            modified_at: None,
+            accessed_at: None,
+            inode: 1,
+            device: 1,
+            is_hardlink_dup: false,
+            is_protected: false,
+        };
+        let rules = HeuristicAnalyzer::new(Path::new("/Users/alice"));
+        let en = rules.analyze(&record, Locale::EnUs);
+        let pt = rules.analyze(&record, Locale::PtBr);
+        assert_eq!(en.summary, "Xcode simulators and runtimes (CoreSimulator).");
+        assert_eq!(
+            pt.summary,
+            "Simuladores e runtimes do Xcode (CoreSimulator)."
+        );
+        assert_eq!(en.level, pt.level);
+        assert_eq!(en.commands[0].command, pt.commands[0].command);
+        assert!(en.commands[0].description.starts_with("Removes"));
     }
 
     #[test]

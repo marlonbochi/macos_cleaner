@@ -3,4 +3,5 @@
 pub mod ai_settings_service;
 pub mod analysis_service;
 pub mod catalog_service;
+pub mod preferences_service;
 pub mod scan_service;

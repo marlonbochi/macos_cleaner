@@ -231,10 +231,9 @@ impl AiProvider for Ollama {
             .http
             .post(&format!("{}/api/chat", self.base_url), &[], &body)
             .map_err(|e| match e {
-                AiError::Network(msg) => AiError::Network(format!(
-                    "{msg} (o Ollama está rodando em {}?)",
-                    self.base_url
-                )),
+                AiError::Network(msg) => {
+                    AiError::Network(format!("{msg} (is Ollama running at {}?)", self.base_url))
+                }
                 other => other,
             })?;
         parse_json_text(require_str(&reply, "/message/content")?)

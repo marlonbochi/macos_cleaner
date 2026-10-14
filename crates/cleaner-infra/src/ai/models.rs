@@ -118,7 +118,7 @@ fn openai(http: &JsonHttp, base: &str, key: &str) -> Result<Vec<AiModel>, AiErro
             let id = m.get("id")?.as_str()?;
             let created = m.get("created").and_then(Value::as_i64).unwrap_or(0);
             let label = match m.get("shutdown_date").and_then(Value::as_str) {
-                Some(date) => format!("{id} (desativação em {date})"),
+                Some(date) => format!("{id} (retiring on {date})"),
                 None => id.to_owned(),
             };
             Some((created, model(id, Some(&label))))
@@ -174,7 +174,7 @@ fn ollama(http: &JsonHttp, base: &str) -> Result<Vec<AiModel>, AiError> {
         .get(&format!("{base}/api/tags"), &[])
         .map_err(|e| match e {
             AiError::Network(msg) => {
-                AiError::Network(format!("{msg} (o Ollama está rodando em {base}?)"))
+                AiError::Network(format!("{msg} (is Ollama running at {base}?)"))
             }
             other => other,
         })?;

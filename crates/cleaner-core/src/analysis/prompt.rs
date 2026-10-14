@@ -10,11 +10,12 @@ use serde_json::{Value, json};
 
 use super::verdict::Verdict;
 use crate::domain::file_entry::{FileKind, FileRecord};
+use crate::domain::locale::Locale;
 use crate::domain::risk::{Recommendation, RiskCategory, RiskLevel, SuggestedCommand};
 use crate::ports::ai::AiError;
 
 /// Bump when the prompt or schema changes: cached AI assessments are then recomputed.
-pub const PROMPT_VERSION: u32 = 1;
+pub const PROMPT_VERSION: u32 = 2;
 pub const SCHEMA_NAME: &str = "file_analysis";
 /// How many children of a folder are described to the model.
 pub const MAX_CHILDREN: usize = 15;
@@ -25,29 +26,29 @@ pub const MAX_BATCH: usize = 20;
 pub const BATCH_MAX_CHILDREN: usize = 5;
 
 const SYSTEM_PROMPT: &str = "\
-Você é um especialista em macOS que ajuda uma pessoa a liberar espaço em disco com segurança.
-Você recebe os METADADOS de um item (nunca o conteúdo): caminho (com ~ para a pasta pessoal),
-tipo, tamanhos, datas e, para pastas, os maiores subitens.
+You are a macOS expert helping someone free disk space safely.
+You receive the METADATA of an item (never its contents): path (with ~ for the home folder),
+kind, sizes, dates and, for folders, the largest children.
 
-Responda em português do Brasil, de forma objetiva, avaliando:
-- o que o item provavelmente é (qual app/ferramenta o criou);
-- o risco de apagá-lo: Safe (recriável ou descartável), Caution (pode ter valor, conferir antes),
-  Dangerous (dados pessoais insubstituíveis, bibliotecas de apps, bancos de dados, sistema),
-  Unknown (não dá para saber);
-- a melhor forma de liberar esse espaço.
+Assess, objectively:
+- what the item most likely is (which app/tool created it);
+- the risk of deleting it: Safe (re-creatable or disposable), Caution (may have value, check
+  first), Dangerous (irreplaceable personal data, app libraries, databases, system),
+  Unknown (cannot tell);
+- the best way to free that space.
 
-Regras:
-- Seja conservador: na dúvida, use Caution ou Unknown. Nunca classifique como Safe algo que
-  possa conter dados pessoais únicos.
-- Quando existir uma forma oficial de limpar (configuração do app, menu, ou comando oficial
-  como `xcrun simctl delete unavailable`, `brew cleanup`, `docker system prune`,
-  `tmutil deletelocalsnapshots`), prefira recomendá-la (recommendation use-app-or-command) em vez
-  de apagar a pasta manualmente, e explique o porquê.
-- Em `steps`, descreva caminhos de menu ou passos curtos (ex.: \"Xcode › Settings › Platforms\").
-- Em `commands`, inclua apenas comandos reais e seguros, um por linha, com uma descrição do
-  que cada um faz. Nunca sugira `sudo rm -rf` em pastas do sistema nem comandos que apaguem
-  mais do que o item analisado. Deixe `commands` vazio quando não houver um comando útil.
-- Se o melhor for manter os dados mas fora deste disco, use move-to-cloud-or-external.";
+Rules:
+- Be conservative: when in doubt, use Caution or Unknown. Never classify as Safe anything that may
+  contain unique personal data.
+- When there is an official way to clean it (an app setting, a menu, or an official command such
+  as `xcrun simctl delete unavailable`, `brew cleanup`, `docker system prune`,
+  `tmutil deletelocalsnapshots`), recommend it (recommendation use-app-or-command) instead of
+  deleting the folder by hand, and explain why.
+- In `steps`, describe menu paths or short steps (e.g. \"Xcode › Settings › Platforms\").
+- In `commands`, include only real, safe commands, one per entry, each with a description of what
+  it does. Never suggest `sudo rm -rf` on system folders nor commands that delete more than the
+  analysed item. Leave `commands` empty when no command is useful.
+- If the best option is to keep the data but off this disk, use move-to-cloud-or-external.";
 
 /// Metadata sent to the model.
 #[derive(Debug, Serialize)]
@@ -70,8 +71,12 @@ struct ChildContext {
     size_on_disk: String,
 }
 
-pub fn system_prompt() -> &'static str {
-    SYSTEM_PROMPT
+/// System prompt with the answer language appended (field values stay in English enums).
+pub fn system_prompt(locale: Locale) -> String {
+    format!(
+        "{SYSTEM_PROMPT}\n\nWrite `summary`, `explanation`, `steps` and command descriptions in {}.",
+        locale.language_name()
+    )
 }
 
 pub fn response_schema() -> Value {
@@ -85,8 +90,8 @@ pub fn response_schema() -> Value {
         "properties": {
             "level": { "type": "string", "enum": levels },
             "category": { "type": "string", "enum": categories },
-            "summary": { "type": "string", "description": "O que é o item, em uma frase." },
-            "explanation": { "type": "string", "description": "Por que esse nível de risco e o que acontece se apagar." },
+            "summary": { "type": "string", "description": "What the item is, in one sentence." },
+            "explanation": { "type": "string", "description": "Why this risk level and what happens if it is deleted." },
             "recommendation": { "type": "string", "enum": recommendations },
             "steps": { "type": "array", "items": { "type": "string" } },
             "commands": {
@@ -137,7 +142,7 @@ pub fn user_message(record: &FileRecord, children: &[FileRecord], home: &Path) -
     let context = item_context(record, children, home, MAX_CHILDREN);
     // Serialising a plain struct of strings and numbers cannot fail; fall back defensively.
     let json = serde_json::to_string_pretty(&context).unwrap_or_default();
-    format!("Analise este item e responda no formato pedido.\n\n{json}")
+    format!("Analyse this item and answer in the requested format.\n\n{json}")
 }
 
 /// One item of a batch request.
@@ -167,8 +172,8 @@ pub fn batch_user_message(items: &[BatchInput<'_>], home: &Path) -> String {
         .collect();
     let json = serde_json::to_string(&json!({ "items": items })).unwrap_or_default();
     format!(
-        "Analise CADA item da lista. Responda com um objeto em `analyses` para cada item, \
-         repetindo exatamente o mesmo `id`. Não omita itens.\n\n{json}"
+        "Analyse EVERY item in the list. Answer with one object in `analyses` per item, \
+         repeating exactly the same `id`. Do not skip items.\n\n{json}"
     )
 }
 
@@ -281,9 +286,9 @@ pub fn parse_json_text(text: &str) -> Result<Value, AiError> {
 
 const fn kind_label(kind: FileKind) -> &'static str {
     match kind {
-        FileKind::File => "arquivo",
-        FileKind::Directory => "pasta",
-        FileKind::Package => "pacote (bundle macOS)",
+        FileKind::File => "file",
+        FileKind::Directory => "folder",
+        FileKind::Package => "package (macOS bundle)",
     }
 }
 
@@ -431,6 +436,12 @@ mod tests {
         );
         assert_eq!(parse_json_text(" {\"a\":1} ").unwrap(), json!({"a": 1}));
         assert!(parse_json_text("nope").is_err());
+    }
+
+    #[test]
+    fn system_prompt_asks_for_the_chosen_language() {
+        assert!(system_prompt(Locale::PtBr).ends_with("in Brazilian Portuguese."));
+        assert!(system_prompt(Locale::EnUs).ends_with("in English."));
     }
 
     #[test]

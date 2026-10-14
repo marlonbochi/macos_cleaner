@@ -85,10 +85,7 @@ fn openai_sorts_newest_first_and_drops_non_text_models() {
         ids(&models),
         ["gpt-6-astra", "gpt-6-luna", "gpt-5-2025-08-07"]
     );
-    assert_eq!(
-        models[2].label,
-        "gpt-5-2025-08-07 (desativação em 2026-12-11)"
-    );
+    assert_eq!(models[2].label, "gpt-5-2025-08-07 (retiring on 2026-12-11)");
 }
 
 #[test]

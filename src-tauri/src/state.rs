@@ -9,6 +9,7 @@ use cleaner_core::policy::protected_paths::ProtectedPathPolicy;
 use cleaner_core::services::ai_settings_service::AiSettingsService;
 use cleaner_core::services::analysis_service::AnalysisService;
 use cleaner_core::services::catalog_service::CatalogService;
+use cleaner_core::services::preferences_service::PreferencesService;
 use cleaner_core::services::scan_service::{ScanConfig, ScanService};
 use cleaner_infra::SystemClock;
 use cleaner_infra::ai::HttpAiProviderFactory;
@@ -31,6 +32,7 @@ pub struct AppState {
     pub catalog: CatalogService,
     pub analysis: AnalysisService,
     pub ai_settings: AiSettingsService,
+    pub preferences: PreferencesService,
     pub home: PathBuf,
     pub running: RunningScans,
 }
@@ -64,8 +66,10 @@ impl AppState {
             Arc::new(SystemClock),
             ScanConfig::default(),
         );
+        let settings_repo = Arc::new(SqliteSettingsRepository::new(db.clone()));
+        let preferences = PreferencesService::new(settings_repo.clone());
         let ai_settings = AiSettingsService::new(
-            Arc::new(SqliteSettingsRepository::new(db.clone())),
+            settings_repo,
             Arc::new(KeychainSecretStore::new(KEYCHAIN_SERVICE)),
             Arc::new(HttpAiProviderFactory::default()),
         );
@@ -73,6 +77,7 @@ impl AppState {
             files.clone(),
             Arc::new(SqliteAssessmentRepository::new(db)),
             ai_settings.clone(),
+            preferences.clone(),
             Arc::new(SystemClock),
             &home,
         );
@@ -85,6 +90,7 @@ impl AppState {
             catalog: CatalogService::new(scans, files),
             analysis,
             ai_settings,
+            preferences,
             home,
             running: RunningScans::default(),
         })

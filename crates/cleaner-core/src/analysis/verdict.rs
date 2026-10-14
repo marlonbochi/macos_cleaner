@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use crate::domain::file_entry::FileRecord;
+use crate::domain::locale::Locale;
 use crate::domain::risk::{
     AssessmentSource, Recommendation, RiskAssessment, RiskCategory, RiskLevel, SuggestedCommand,
 };
@@ -82,12 +83,20 @@ impl Verdict {
 }
 
 /// Verdict for items the app must never touch, regardless of any classifier (FR-016).
-pub fn protected_verdict(path: &Path) -> Verdict {
+pub fn protected_verdict(path: &Path, locale: Locale) -> Verdict {
     Verdict {
         level: RiskLevel::Dangerous,
         category: RiskCategory::System,
-        summary: format!("{} é um local protegido.", path.display()),
-        explanation: "Este item faz parte do sistema, é uma pasta essencial do usuário ou pertence ao próprio macOS Cleaner. O app nunca o remove.".into(),
+        summary: match locale {
+            Locale::EnUs => format!("{} is a protected location.", path.display()),
+            Locale::PtBr => format!("{} é um local protegido.", path.display()),
+        },
+        explanation: locale
+            .pick(
+                "This item is part of the system, an essential user folder, or belongs to macOS Cleaner itself. The app never removes it.",
+                "Este item faz parte do sistema, é uma pasta essencial do usuário ou pertence ao próprio macOS Cleaner. O app nunca o remove.",
+            )
+            .to_owned(),
         recommendation: Recommendation::Keep,
         steps: vec![],
         commands: vec![],
@@ -157,7 +166,7 @@ mod tests {
 
     #[test]
     fn protected_verdict_is_always_dangerous_and_keep() {
-        let v = protected_verdict(Path::new("/System"));
+        let v = protected_verdict(Path::new("/System"), Locale::EnUs);
         assert_eq!(v.level, RiskLevel::Dangerous);
         assert_eq!(v.recommendation, Recommendation::Keep);
     }

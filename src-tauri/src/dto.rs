@@ -605,3 +605,11 @@ impl From<cleaner_core::domain::ai::AiModel> for AiModelDto {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PreferencesDto {
+    /// The language the user chose (`"en-US"` / `"pt-BR"`), or `null` to follow the system.
+    pub locale: Option<String>,
+}

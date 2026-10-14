@@ -5,5 +5,6 @@
 
 pub mod analysis;
 pub mod catalog;
+pub mod preferences;
 pub mod scan;
 pub mod system;
