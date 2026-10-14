@@ -48,6 +48,8 @@ impl From<CoreError> for AppError {
             CoreError::Repo(RepoError::Storage(_)) => ErrorCode::Storage,
             CoreError::Scan(_) => ErrorCode::Internal,
             CoreError::ScanInProgress => ErrorCode::ScanInProgress,
+            CoreError::Ai(_) => ErrorCode::AiUnavailable,
+            CoreError::Secret(_) => ErrorCode::Internal,
         };
         tracing::warn!(error = %err, "command failed");
         Self::new(code, err.to_string())

@@ -6,20 +6,31 @@ use std::sync::{Arc, Mutex};
 use cleaner_core::cancel::CancellationToken;
 use cleaner_core::domain::scan::ScanId;
 use cleaner_core::policy::protected_paths::ProtectedPathPolicy;
+use cleaner_core::services::ai_settings_service::AiSettingsService;
+use cleaner_core::services::analysis_service::AnalysisService;
 use cleaner_core::services::catalog_service::CatalogService;
 use cleaner_core::services::scan_service::{ScanConfig, ScanService};
 use cleaner_infra::SystemClock;
-use cleaner_infra::db::{Database, SqliteFileEntryRepository, SqliteScanRepository};
+use cleaner_infra::ai::HttpAiProviderFactory;
+use cleaner_infra::db::{
+    Database, SqliteAssessmentRepository, SqliteFileEntryRepository, SqliteScanRepository,
+    SqliteSettingsRepository,
+};
 use cleaner_infra::fs::JwalkScanner;
+use cleaner_infra::macos::KeychainSecretStore;
 
 use crate::error::{AppError, ErrorCode};
 
 const CATALOG_FILE: &str = "catalog.sqlite3";
+/// Keychain service under which API keys are stored (matches the bundle identifier).
+const KEYCHAIN_SERVICE: &str = "com.marlonbochi.macoscleaner";
 
 #[derive(Debug)]
 pub struct AppState {
     pub scan: ScanService,
     pub catalog: CatalogService,
+    pub analysis: AnalysisService,
+    pub ai_settings: AiSettingsService,
     pub home: PathBuf,
     pub running: RunningScans,
 }
@@ -42,7 +53,7 @@ impl AppState {
                 .map_err(|e| AppError::new(ErrorCode::Storage, e.to_string()))?,
         );
         let scans = Arc::new(SqliteScanRepository::new(db.clone()));
-        let files = Arc::new(SqliteFileEntryRepository::new(db));
+        let files = Arc::new(SqliteFileEntryRepository::new(db.clone()));
         let policy = Arc::new(ProtectedPathPolicy::macos_default(&home, app_data_dir));
 
         let scan = ScanService::new(
@@ -53,6 +64,18 @@ impl AppState {
             Arc::new(SystemClock),
             ScanConfig::default(),
         );
+        let ai_settings = AiSettingsService::new(
+            Arc::new(SqliteSettingsRepository::new(db.clone())),
+            Arc::new(KeychainSecretStore::new(KEYCHAIN_SERVICE)),
+            Arc::new(HttpAiProviderFactory::default()),
+        );
+        let analysis = AnalysisService::new(
+            files.clone(),
+            Arc::new(SqliteAssessmentRepository::new(db)),
+            ai_settings.clone(),
+            Arc::new(SystemClock),
+            &home,
+        );
         let recovered = scan.recover_interrupted()?;
         if recovered > 0 {
             tracing::info!(recovered, "marked interrupted scans as failed");
@@ -60,6 +83,8 @@ impl AppState {
         Ok(Self {
             scan,
             catalog: CatalogService::new(scans, files),
+            analysis,
+            ai_settings,
             home,
             running: RunningScans::default(),
         })

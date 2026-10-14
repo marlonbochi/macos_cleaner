@@ -338,4 +338,253 @@ mod tests {
             serde_json::json!({ "type": "inaccessible", "path": "/x" })
         );
     }
+    #[test]
+    fn save_input_normalises_blank_fields() {
+        let input = SaveAiSettingsInput {
+            provider: Some(AiProviderIdDto::Ollama),
+            model: Some("  ".into()),
+            base_url: Some(" http://box:11434 ".into()),
+            api_key: None,
+            clear_api_key: false,
+        };
+        let s = input.settings();
+        assert_eq!(s.provider, Some(AiProviderKind::Ollama));
+        assert_eq!(s.model, None);
+        assert_eq!(s.base_url.as_deref(), Some("http://box:11434"));
+    }
+
+    #[test]
+    fn analysis_source_is_tagged() {
+        let json = serde_json::to_value(AnalysisSourceDto::Ai {
+            provider: "anthropic".into(),
+            model: "m".into(),
+        })
+        .unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({"kind": "ai", "provider": "anthropic", "model": "m"})
+        );
+        let json = serde_json::to_value(RecommendationDto::UseAppOrCommand).unwrap();
+        assert_eq!(json, serde_json::json!("use-app-or-command"));
+    }
+}
+
+// ── AI analysis (US2) ─────────────────────────────────────────────────────
+
+use cleaner_core::domain::ai::{AiProviderKind, AiSettings};
+use cleaner_core::domain::risk::{AssessmentSource, Recommendation, RiskAssessment, RiskLevel};
+use cleaner_core::services::analysis_service::AnalysisOutcome;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum RiskLevelDto {
+    Safe,
+    Unknown,
+    Caution,
+    Dangerous,
+}
+
+impl From<RiskLevel> for RiskLevelDto {
+    fn from(l: RiskLevel) -> Self {
+        match l {
+            RiskLevel::Safe => Self::Safe,
+            RiskLevel::Unknown => Self::Unknown,
+            RiskLevel::Caution => Self::Caution,
+            RiskLevel::Dangerous => Self::Dangerous,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export)]
+pub enum RecommendationDto {
+    DeleteSafely,
+    UseAppOrCommand,
+    MoveToCloudOrExternal,
+    Keep,
+    ReviewManually,
+}
+
+impl From<Recommendation> for RecommendationDto {
+    fn from(r: Recommendation) -> Self {
+        match r {
+            Recommendation::DeleteSafely => Self::DeleteSafely,
+            Recommendation::UseAppOrCommand => Self::UseAppOrCommand,
+            Recommendation::MoveToCloudOrExternal => Self::MoveToCloudOrExternal,
+            Recommendation::Keep => Self::Keep,
+            Recommendation::ReviewManually => Self::ReviewManually,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SuggestedCommandDto {
+    pub command: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export)]
+pub enum AnalysisSourceDto {
+    ProtectedRule,
+    Heuristic,
+    Ai { provider: String, model: String },
+}
+
+impl From<AssessmentSource> for AnalysisSourceDto {
+    fn from(s: AssessmentSource) -> Self {
+        match s {
+            AssessmentSource::ProtectedRule => Self::ProtectedRule,
+            AssessmentSource::Heuristic => Self::Heuristic,
+            AssessmentSource::Ai { provider, model } => Self::Ai { provider, model },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AnalysisDto {
+    #[ts(type = "number")]
+    pub file_id: i64,
+    pub level: RiskLevelDto,
+    pub category: String,
+    pub summary: String,
+    pub explanation: String,
+    pub recommendation: RecommendationDto,
+    pub steps: Vec<String>,
+    pub commands: Vec<SuggestedCommandDto>,
+    pub source: AnalysisSourceDto,
+    #[ts(type = "number")]
+    pub created_at: i64,
+    /// The AI was configured but failed; local rules answered instead.
+    pub ai_error: Option<String>,
+}
+
+impl AnalysisDto {
+    pub fn new(file_id: i64, a: RiskAssessment, ai_error: Option<String>) -> Self {
+        Self {
+            file_id,
+            level: a.level.into(),
+            category: a.category.as_str().to_owned(),
+            summary: a.summary,
+            explanation: a.explanation,
+            recommendation: a.recommendation.into(),
+            steps: a.steps,
+            commands: a
+                .commands
+                .into_iter()
+                .map(|c| SuggestedCommandDto {
+                    command: c.command,
+                    description: c.description,
+                })
+                .collect(),
+            source: a.source.into(),
+            created_at: a.created_at,
+            ai_error,
+        }
+    }
+}
+
+impl From<AnalysisOutcome> for AnalysisDto {
+    fn from(o: AnalysisOutcome) -> Self {
+        Self::new(o.file_id.0, o.assessment, o.ai_error)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export)]
+pub enum AiProviderIdDto {
+    Anthropic,
+    OpenAi,
+    Gemini,
+    Ollama,
+}
+
+impl From<AiProviderKind> for AiProviderIdDto {
+    fn from(k: AiProviderKind) -> Self {
+        match k {
+            AiProviderKind::Anthropic => Self::Anthropic,
+            AiProviderKind::OpenAi => Self::OpenAi,
+            AiProviderKind::Gemini => Self::Gemini,
+            AiProviderKind::Ollama => Self::Ollama,
+        }
+    }
+}
+
+impl From<AiProviderIdDto> for AiProviderKind {
+    fn from(k: AiProviderIdDto) -> Self {
+        match k {
+            AiProviderIdDto::Anthropic => Self::Anthropic,
+            AiProviderIdDto::OpenAi => Self::OpenAi,
+            AiProviderIdDto::Gemini => Self::Gemini,
+            AiProviderIdDto::Ollama => Self::Ollama,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AiProviderInfoDto {
+    pub id: AiProviderIdDto,
+    pub label: String,
+    pub default_model: String,
+    pub default_base_url: String,
+    pub needs_api_key: bool,
+    /// Whether an API key for this provider is stored in the Keychain.
+    pub has_api_key: bool,
+}
+
+/// Current settings. The API key itself is never sent to the frontend.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AiSettingsDto {
+    pub provider: Option<AiProviderIdDto>,
+    pub model: Option<String>,
+    pub base_url: Option<String>,
+    pub providers: Vec<AiProviderInfoDto>,
+}
+
+#[derive(Debug, Clone, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SaveAiSettingsInput {
+    pub provider: Option<AiProviderIdDto>,
+    pub model: Option<String>,
+    pub base_url: Option<String>,
+    /// New key to store; `null`/empty keeps the stored one.
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub clear_api_key: bool,
+}
+
+impl SaveAiSettingsInput {
+    pub fn settings(&self) -> AiSettings {
+        let clean = |v: &Option<String>| {
+            v.as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned)
+        };
+        AiSettings {
+            provider: self.provider.map(Into::into),
+            model: clean(&self.model),
+            base_url: clean(&self.base_url),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ConnectionTestDto {
+    pub provider: String,
+    pub model: String,
 }
