@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "macos-cleaner",
+  "productName": "macOS Cleaner",
   "version": "0.1.0",
   "identifier": "com.marlonbochi.macoscleaner",
   "build": {
@@ -12,24 +12,34 @@
   "app": {
     "windows": [
       {
-        "title": "macos-cleaner",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "macOS Cleaner",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "app",
+      "dmg"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
+      "icons/icon.icns"
+    ],
+    "category": "public.app-category.utilities",
+    "shortDescription": "Encontre e libere espa\u00e7o em disco com seguran\u00e7a",
+    "macOS": {
+      "minimumSystemVersion": "13.0"
+    }
   }
 }

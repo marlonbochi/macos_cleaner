@@ -4,4 +4,15 @@ import type { ScanSummaryDto } from "./ScanSummaryDto";
 /**
  * Streamed through a `tauri::ipc::Channel` while a scan runs.
  */
-export type ScanEvent = { "type": "started", summary: ScanSummaryDto, } | { "type": "progress", filesSeen: number, bytesSeen: number, inaccessibleCount: number, currentPath: string, } | { "type": "inaccessible", path: string, } | { "type": "finished", summary: ScanSummaryDto, } | { "type": "error", message: string, };
+export type ScanEvent =
+  | { type: "started"; summary: ScanSummaryDto }
+  | {
+      type: "progress";
+      filesSeen: number;
+      bytesSeen: number;
+      inaccessibleCount: number;
+      currentPath: string;
+    }
+  | { type: "inaccessible"; path: string }
+  | { type: "finished"; summary: ScanSummaryDto }
+  | { type: "error"; message: string };

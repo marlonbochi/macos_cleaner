@@ -19,13 +19,13 @@ tauri-build = { version = "2", features = [] }
 cleaner-core.workspace = true
 cleaner-infra.workspace = true
 tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 ts-rs = "12.0.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tauri-plugin-dialog = "2"
 
 [lints]
 workspace = true
