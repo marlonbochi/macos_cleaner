@@ -4,24 +4,24 @@ Aplicativo desktop para macOS que encontra o que está ocupando espaço em disco
 com segurança, o que pode ser removido.
 
 - Varre o disco (somente leitura) e lista arquivos e pastas do maior para o menor.
-- Classifica o risco de excluir cada item com IA (nuvem ou local) ou regras locais. *(em andamento)*
-- Exclui somente após revisão, sempre para a Lixeira, com histórico. *(em andamento)*
-- Mostra aplicativos e jogos pelo tamanho total real. *(planejado)*
-- Libera espaço de arquivos já sincronizados com iCloud/OneDrive/Google Drive/Dropbox. *(planejado)*
+- Classifica o risco de excluir cada item com IA (nuvem ou local) ou regras locais. _(em andamento)_
+- Exclui somente após revisão, sempre para a Lixeira, com histórico. _(em andamento)_
+- Mostra aplicativos e jogos pelo tamanho total real. _(planejado)_
+- Libera espaço de arquivos já sincronizados com iCloud/OneDrive/Google Drive/Dropbox. _(planejado)_
 
 O projeto também é um estudo de Rust: o núcleo é escrito em Rust com arquitetura hexagonal e a
 interface em Vue 3 + TypeScript sobre Tauri v2.
 
 ## Documentação
 
-| Documento | Conteúdo |
-|---|---|
-| [Constituição](.specify/memory/constitution.md) | Princípios inegociáveis (segurança, arquitetura, testes, IA) |
-| [Especificação](specs/001-disk-space-cleaner/spec.md) | Histórias de usuário, requisitos e critérios de sucesso |
-| [Plano](specs/001-disk-space-cleaner/plan.md) | Stack, estrutura e decisões ([research](specs/001-disk-space-cleaner/research.md)) |
-| [Modelo de dados](specs/001-disk-space-cleaner/data-model.md) | Entidades e schema SQLite |
-| [Contratos](specs/001-disk-space-cleaner/contracts/) | Comandos IPC, ports do core, contrato da IA |
-| [Tarefas](specs/001-disk-space-cleaner/tasks.md) | Backlog ordenado por história |
+| Documento                                                     | Conteúdo                                                                           |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [Constituição](.specify/memory/constitution.md)               | Princípios inegociáveis (segurança, arquitetura, testes, IA)                       |
+| [Especificação](specs/001-disk-space-cleaner/spec.md)         | Histórias de usuário, requisitos e critérios de sucesso                            |
+| [Plano](specs/001-disk-space-cleaner/plan.md)                 | Stack, estrutura e decisões ([research](specs/001-disk-space-cleaner/research.md)) |
+| [Modelo de dados](specs/001-disk-space-cleaner/data-model.md) | Entidades e schema SQLite                                                          |
+| [Contratos](specs/001-disk-space-cleaner/contracts/)          | Comandos IPC, ports do core, contrato da IA                                        |
+| [Tarefas](specs/001-disk-space-cleaner/tasks.md)              | Backlog ordenado por história                                                      |
 
 O desenvolvimento segue [Spec Kit](https://github.com/github/spec-kit): `/speckit-specify` →
 `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`.
