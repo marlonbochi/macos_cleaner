@@ -20,6 +20,15 @@ export default {
     body: "Sem essa permissão, algumas pastas (Mail, Safari, contêineres de apps) não podem ser lidas e o total exibido será parcial. Você pode continuar mesmo assim.",
     open: "Abrir Ajustes do Sistema",
     recheck: "Verificar novamente",
+    reveal: "Mostrar {name} no Finder",
+    step1: "Abra Ajustes do Sistema → Privacidade e Segurança → Acesso Total ao Disco.",
+    step2:
+      "Ative {name} na lista. Se não aparecer, clique em “+” e selecione o app — ou arraste-o do Finder para a lista.",
+    step3: "Feche e abra {name} novamente: o macOS só aplica a permissão após reiniciar o app.",
+    step3Dev: "Feche {name} por completo (⌘Q), abra de novo e rode “npm run tauri dev” outra vez.",
+    devNote:
+      "Modo desenvolvimento: o macOS concede a permissão ao app que iniciou o processo ({name}), e não ao macOS Cleaner.",
+    unknownTarget: "o macOS Cleaner",
   },
   scan: {
     title: "Varredura",

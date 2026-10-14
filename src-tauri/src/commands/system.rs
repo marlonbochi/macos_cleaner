@@ -18,6 +18,7 @@ pub fn reveal_in_finder(path: String) -> CommandResult<()> {
 pub fn get_permissions_status(state: State<'_, AppState>) -> PermissionsStatusDto {
     PermissionsStatusDto {
         full_disk_access: macos::has_full_disk_access(&state.home),
+        target: macos::permission_target().map(Into::into),
     }
 }
 

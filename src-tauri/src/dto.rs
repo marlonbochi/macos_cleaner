@@ -268,6 +268,27 @@ impl From<&ScanProgress> for ScanEvent {
 #[ts(export)]
 pub struct PermissionsStatusDto {
     pub full_disk_access: bool,
+    /// Which app the user must enable in System Settings, when it can be determined.
+    pub target: Option<PermissionTargetDto>,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct PermissionTargetDto {
+    pub name: String,
+    pub app_path: Option<String>,
+    pub is_dev_host: bool,
+}
+
+impl From<cleaner_infra::macos::PermissionTarget> for PermissionTargetDto {
+    fn from(t: cleaner_infra::macos::PermissionTarget) -> Self {
+        Self {
+            name: t.name,
+            app_path: t.app_path.map(|p| p.to_string_lossy().into_owned()),
+            is_dev_host: t.is_dev_host,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

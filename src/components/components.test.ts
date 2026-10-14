@@ -109,12 +109,34 @@ describe("ScanProgress", () => {
 });
 
 describe("PermissionBanner", () => {
-  it("emits open and recheck", async () => {
-    const { wrapper } = await mountWithPlugins(PermissionBanner);
+  it("emits open and recheck and falls back to a generic target", async () => {
+    const { wrapper } = await mountWithPlugins(PermissionBanner, { props: { target: null } });
     const [open, recheck] = wrapper.findAll("button");
     await open?.trigger("click");
     await recheck?.trigger("click");
     expect(wrapper.emitted("open")).toHaveLength(1);
     expect(wrapper.emitted("recheck")).toHaveLength(1);
+    expect(wrapper.find('[data-test="steps"]').text()).toContain("Ative o macOS Cleaner na lista");
+    expect(wrapper.find('[data-test="reveal-target"]').exists()).toBe(false);
+  });
+
+  it("names the bundled app and reveals it in Finder", async () => {
+    const target = {
+      name: "macOS Cleaner",
+      appPath: "/Applications/macOS Cleaner.app",
+      isDevHost: false,
+    };
+    const { wrapper } = await mountWithPlugins(PermissionBanner, { props: { target } });
+    expect(wrapper.find('[data-test="dev-note"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="steps"]').text()).toContain("Feche e abra macOS Cleaner");
+    await wrapper.find('[data-test="reveal-target"]').trigger("click");
+    expect(wrapper.emitted("reveal")).toEqual([["/Applications/macOS Cleaner.app"]]);
+  });
+
+  it("explains that the launching terminal needs access in dev mode", async () => {
+    const target = { name: "iTerm", appPath: "/Applications/iTerm.app", isDevHost: true };
+    const { wrapper } = await mountWithPlugins(PermissionBanner, { props: { target } });
+    expect(wrapper.find('[data-test="dev-note"]').text()).toContain("(iTerm)");
+    expect(wrapper.find('[data-test="steps"]').text()).toContain("npm run tauri dev");
   });
 });

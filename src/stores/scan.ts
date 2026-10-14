@@ -120,6 +120,14 @@ export const useScanStore = defineStore("scan", () => {
     await useApi().system.openFullDiskAccessSettings();
   }
 
+  async function revealInFinder(path: string): Promise<void> {
+    try {
+      await useApi().system.revealInFinder(path);
+    } catch (e) {
+      error.value = IpcError.from(e).message;
+    }
+  }
+
   return {
     defaults,
     roots,
@@ -139,5 +147,6 @@ export const useScanStore = defineStore("scan", () => {
     removeRoot,
     refreshPermissions,
     openFullDiskAccessSettings,
+    revealInFinder,
   };
 });

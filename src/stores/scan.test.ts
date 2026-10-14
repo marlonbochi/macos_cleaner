@@ -134,4 +134,17 @@ describe("scan store", () => {
     expect(store.permissions?.fullDiskAccess).toBe(true);
     expect(transport.lastCall("open_full_disk_access_settings")).toEqual({});
   });
+
+  it("reveals the app that needs Full Disk Access and reports failures", async () => {
+    const { transport, store } = setup();
+    transport.on("reveal_in_finder", () => undefined);
+    await store.revealInFinder("/Applications/iTerm.app");
+    expect(transport.lastCall("reveal_in_finder")).toEqual({ path: "/Applications/iTerm.app" });
+
+    transport.on("reveal_in_finder", () => {
+      throw { code: "NOT_FOUND", message: "gone" };
+    });
+    await store.revealInFinder("/x.app");
+    expect(store.error).toBe("gone");
+  });
 });

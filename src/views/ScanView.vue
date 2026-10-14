@@ -34,8 +34,10 @@ async function addFolders(): Promise<void> {
 
     <PermissionBanner
       v-if="scan.permissions && !scan.permissions.fullDiskAccess"
+      :target="scan.permissions.target"
       @open="scan.openFullDiskAccessSettings"
       @recheck="scan.refreshPermissions"
+      @reveal="scan.revealInFinder"
     />
 
     <section class="card">
