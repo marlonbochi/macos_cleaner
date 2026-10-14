@@ -24,15 +24,15 @@ Tauri v2, built spec-first with [Spec Kit](https://github.com/github/spec-kit).
 
 ## Documentation
 
-| Document | Contents |
-|---|---|
-| [Constitution](.specify/memory/constitution.md) | Non-negotiable principles (safety, architecture, tests, AI) |
-| [Specification](specs/001-disk-space-cleaner/spec.md) | User stories, requirements and success criteria |
-| [Plan](specs/001-disk-space-cleaner/plan.md) | Stack, structure and decisions ([research](specs/001-disk-space-cleaner/research.md)) |
-| [Data model](specs/001-disk-space-cleaner/data-model.md) | Entities and SQLite schema |
-| [Contracts](specs/001-disk-space-cleaner/contracts/) | IPC commands, core ports, AI contract |
-| [Tasks](specs/001-disk-space-cleaner/tasks.md) | Backlog ordered by user story |
-| Later stages | [002 AI analysis](specs/002-ai-risk-analysis/spec.md), [003 batch analysis](specs/003-batch-ai-analysis/spec.md) |
+| Document                                                 | Contents                                                                                                         |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [Constitution](.specify/memory/constitution.md)          | Non-negotiable principles (safety, architecture, tests, AI)                                                      |
+| [Specification](specs/001-disk-space-cleaner/spec.md)    | User stories, requirements and success criteria                                                                  |
+| [Plan](specs/001-disk-space-cleaner/plan.md)             | Stack, structure and decisions ([research](specs/001-disk-space-cleaner/research.md))                            |
+| [Data model](specs/001-disk-space-cleaner/data-model.md) | Entities and SQLite schema                                                                                       |
+| [Contracts](specs/001-disk-space-cleaner/contracts/)     | IPC commands, core ports, AI contract                                                                            |
+| [Tasks](specs/001-disk-space-cleaner/tasks.md)           | Backlog ordered by user story                                                                                    |
+| Later stages                                             | [002 AI analysis](specs/002-ai-risk-analysis/spec.md), [003 batch analysis](specs/003-batch-ai-analysis/spec.md) |
 
 Development follows Spec Kit: `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one branch per stage.
