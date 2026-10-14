@@ -190,7 +190,7 @@ implementation and must fail before they are satisfied.
 
 - [ ] T068 [P] Scan performance benchmark (1M synthetic files) and batch/throttle tuning — SC-001
 - [X] T069 [P] `.github/workflows/release.yml` with `tauri-action` (universal dmg) and a weekly audit job (`audit.yml`)
-- [ ] T070 [P] App icon, bundle metadata, `Info.plist` usage descriptions
+- [X] T070 [P] App icon (source `assets/icon/icon.svg`, generated with `tauri icon`) and bundle metadata; `Info.plist` usage descriptions still pending
 - [ ] T071 Run the `quickstart.md` script and record the results
 - [ ] T072 [P] Architecture documentation (hexagonal diagram and patterns) in `docs/architecture.md`
 - [X] T073 [P] Translate all documentation and specs to English (repository language rule) — branch `004-english-docs`

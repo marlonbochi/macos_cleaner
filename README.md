@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icon/icon.png" alt="macOS Cleaner icon" width="128" /></p>
+
 # macOS Cleaner
 
 [![CI](https://github.com/marlonbochi/macos_cleaner/actions/workflows/ci.yml/badge.svg)](https://github.com/marlonbochi/macos_cleaner/actions/workflows/ci.yml)

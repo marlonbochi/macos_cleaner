@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2D55C2"/>
+      <stop offset="1" stop-color="#1A3380"/>
+    </linearGradient>
+    <linearGradient id="platter" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4F7FD"/>
+      <stop offset="1" stop-color="#C8D4EC"/>
+    </linearGradient>
+  </defs>
+  <!-- macOS icon grid: 824px squircle centred on a 1024px canvas -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- disk platter -->
+  <circle cx="512" cy="540" r="290" fill="url(#platter)"/>
+  <circle cx="512" cy="540" r="215" fill="none" stroke="#AFC0E3" stroke-width="6"/>
+  <circle cx="512" cy="540" r="150" fill="none" stroke="#AFC0E3" stroke-width="6"/>
+  <!-- read arm (drawn before the hub so the hub sits on top) -->
+  <path d="M512 540 L700 420" stroke="#1E3A8A" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="700" cy="420" r="30" fill="#1E3A8A"/>
+  <circle cx="512" cy="540" r="62" fill="#1E3A8A"/>
+  <circle cx="512" cy="540" r="22" fill="#C8D4EC"/>
+  <!-- sparkles -->
+  <path d="M760 168 L790 248 L870 278 L790 308 L760 388 L730 308 L650 278 L730 248 Z" fill="#FBBF24"/>
+  <path d="M272 220 L287 260 L327 275 L287 290 L272 330 L257 290 L217 275 L257 260 Z" fill="#FDE68A"/>
+  <path d="M248 760 L258 786 L284 796 L258 806 L248 832 L238 806 L212 796 L238 786 Z" fill="#FDE68A"/>
+</svg>
