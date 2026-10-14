@@ -1,6 +1,7 @@
 import type { AiModelDto } from "@/types/generated/AiModelDto";
 import type { AiProviderIdDto } from "@/types/generated/AiProviderIdDto";
 import type { AiSettingsDto } from "@/types/generated/AiSettingsDto";
+import type { AppFootprintDto } from "@/types/generated/AppFootprintDto";
 import type { AnalysisDto } from "@/types/generated/AnalysisDto";
 import type { ConnectionTestDto } from "@/types/generated/ConnectionTestDto";
 import type { DiagnosisItemDto } from "@/types/generated/DiagnosisItemDto";
@@ -14,6 +15,7 @@ import type { ScanDefaultsDto } from "@/types/generated/ScanDefaultsDto";
 import type { ScanEvent } from "@/types/generated/ScanEvent";
 import type { SaveAiSettingsInput } from "@/types/generated/SaveAiSettingsInput";
 import type { ScanSummaryDto } from "@/types/generated/ScanSummaryDto";
+import type { UninstallReportDto } from "@/types/generated/UninstallReportDto";
 import type { Transport } from "./transport";
 
 /** Typed wrappers for the scan commands (contract: tauri-commands.md, US1). */
@@ -169,6 +171,21 @@ export class PreferencesApi {
   }
 }
 
+/** Complete uninstall of the app (feature 009). */
+export class UninstallApi {
+  constructor(private readonly transport: Transport) {}
+
+  /** What would be removed, with sizes. Changes nothing. */
+  footprint(): Promise<AppFootprintDto> {
+    return this.transport.invoke("get_app_footprint");
+  }
+
+  /** Needs the exact confirmation phrase; the app quits afterwards. */
+  uninstall(confirmation: string): Promise<UninstallReportDto> {
+    return this.transport.invoke("uninstall_app", { confirmation });
+  }
+}
+
 /** Facade grouping every backend API. */
 export class Api {
   readonly scan: ScanApi;
@@ -178,6 +195,7 @@ export class Api {
   readonly diagnosis: DiagnosisApi;
   readonly settings: SettingsApi;
   readonly preferences: PreferencesApi;
+  readonly uninstall: UninstallApi;
 
   constructor(transport: Transport) {
     this.scan = new ScanApi(transport);
@@ -187,5 +205,6 @@ export class Api {
     this.diagnosis = new DiagnosisApi(transport);
     this.settings = new SettingsApi(transport);
     this.preferences = new PreferencesApi(transport);
+    this.uninstall = new UninstallApi(transport);
   }
 }

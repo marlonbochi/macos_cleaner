@@ -26,8 +26,6 @@ use cleaner_infra::macos::{self, KeychainSecretStore, MacTrash};
 use crate::error::{AppError, ErrorCode};
 
 const CATALOG_FILE: &str = "catalog.sqlite3";
-/// Keychain service under which API keys are stored (matches the bundle identifier).
-const KEYCHAIN_SERVICE: &str = "com.marlonbochi.macoscleaner";
 
 #[derive(Debug)]
 pub struct AppState {
@@ -73,7 +71,7 @@ impl AppState {
         );
         let settings_repo = Arc::new(SqliteSettingsRepository::new(db.clone()));
         let preferences = PreferencesService::new(settings_repo.clone());
-        let secrets = Arc::new(KeychainSecretStore::new(KEYCHAIN_SERVICE));
+        let secrets = Arc::new(KeychainSecretStore::new(bundle_id));
         let ai_settings = AiSettingsService::new(
             settings_repo,
             secrets.clone(),

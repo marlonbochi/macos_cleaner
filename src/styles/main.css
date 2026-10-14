@@ -122,6 +122,17 @@ button.primary:hover:not(:disabled) {
   background: var(--accent);
 }
 
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
+}
+
+button.danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: var(--danger);
+}
+
 button.link {
   border: none;
   background: none;

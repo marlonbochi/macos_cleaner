@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
+import UninstallDialog from "@/components/UninstallDialog.vue";
 import { LOCALE_NAMES, SUPPORTED_LOCALES, isAppLocale } from "@/i18n";
 import { useAiSettingsStore } from "@/stores/aiSettings";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useScanStore } from "@/stores/scan";
+import { useUninstallStore } from "@/stores/uninstall";
 import type { AiProviderIdDto } from "@/types/generated/AiProviderIdDto";
 
 const ai = useAiSettingsStore();
 const preferences = usePreferencesStore();
+const scan = useScanStore();
+const uninstall = useUninstallStore();
+const uninstallOpen = ref(false);
 
 onMounted(() => void ai.load());
 
@@ -29,6 +35,18 @@ function onUrlInput(event: Event): void {
 
 function onCustomUrl(event: Event): void {
   ai.setCustomUrl((event.target as HTMLInputElement).checked);
+}
+
+function openUninstall(): void {
+  uninstall.reset();
+  uninstallOpen.value = true;
+  if (!scan.defaults) void scan.init();
+  void uninstall.load();
+}
+
+function closeUninstall(): void {
+  uninstallOpen.value = false;
+  uninstall.reset();
 }
 </script>
 
@@ -207,10 +225,34 @@ function onCustomUrl(event: Event): void {
       <h2>{{ $t("settings.privacyTitle") }}</h2>
       <p class="muted">{{ $t("settings.privacy") }}</p>
     </section>
+
+    <section class="card danger-zone">
+      <h2>{{ $t("uninstall.title") }}</h2>
+      <p class="muted">{{ $t("uninstall.description") }}</p>
+      <button class="danger" data-test="open-uninstall" @click="openUninstall">
+        {{ $t("uninstall.open") }}
+      </button>
+    </section>
+
+    <UninstallDialog
+      v-if="uninstallOpen"
+      :footprint="uninstall.footprint"
+      :loading="uninstall.loading"
+      :running="uninstall.running"
+      :report="uninstall.report"
+      :error="uninstall.error"
+      :home="scan.defaults?.home ?? null"
+      @confirm="uninstall.uninstall"
+      @close="closeUninstall"
+    />
   </div>
 </template>
 
 <style scoped>
+.danger-zone {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
 .field {
   display: flex;
   flex-direction: column;
