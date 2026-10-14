@@ -374,6 +374,7 @@ mod tests {
 use cleaner_core::domain::ai::{AiProviderKind, AiSettings};
 use cleaner_core::domain::risk::{AssessmentSource, Recommendation, RiskAssessment, RiskLevel};
 use cleaner_core::services::analysis_service::AnalysisOutcome;
+use cleaner_core::services::diagnosis_service::DiagnosisItem;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -493,6 +494,28 @@ impl AnalysisDto {
 impl From<AnalysisOutcome> for AnalysisDto {
     fn from(o: AnalysisOutcome) -> Self {
         Self::new(o.file_id.0, o.assessment, o.ai_error)
+    }
+}
+
+/// One of the largest items of a scan with what the AI thinks of it (feature 008).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct DiagnosisItemDto {
+    pub file: FileEntryDto,
+    /// `None` until the item has been analysed.
+    pub analysis: Option<AnalysisDto>,
+}
+
+impl From<DiagnosisItem> for DiagnosisItemDto {
+    fn from(item: DiagnosisItem) -> Self {
+        let id = item.entry.id.0;
+        Self {
+            analysis: item
+                .assessment
+                .map(|a| AnalysisDto::new(id, a, item.ai_error)),
+            file: item.entry.into(),
+        }
     }
 }
 
