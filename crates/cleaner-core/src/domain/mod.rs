@@ -3,6 +3,7 @@
 pub mod action;
 pub mod ai;
 pub mod file_entry;
+pub mod footprint;
 pub mod locale;
 pub mod package;
 pub mod risk;

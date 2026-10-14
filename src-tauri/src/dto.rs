@@ -372,9 +372,13 @@ mod tests {
 // ── AI analysis (US2) ─────────────────────────────────────────────────────
 
 use cleaner_core::domain::ai::{AiProviderKind, AiSettings};
+use cleaner_core::domain::footprint::FootprintKind;
 use cleaner_core::domain::risk::{AssessmentSource, Recommendation, RiskAssessment, RiskLevel};
 use cleaner_core::services::analysis_service::AnalysisOutcome;
 use cleaner_core::services::diagnosis_service::DiagnosisItem;
+use cleaner_core::services::uninstall_service::{
+    AppFootprint, CONFIRMATION_PHRASE, UninstallReport,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -635,4 +639,112 @@ impl From<cleaner_core::domain::ai::AiModel> for AiModelDto {
 pub struct PreferencesDto {
     /// The language the user chose (`"en-US"` / `"pt-BR"`), or `null` to follow the system.
     pub locale: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum FootprintKindDto {
+    AppData,
+    WebData,
+    Cache,
+    Logs,
+    Preferences,
+    SavedState,
+    HttpStorage,
+    AppBundle,
+}
+
+impl From<FootprintKind> for FootprintKindDto {
+    fn from(k: FootprintKind) -> Self {
+        match k {
+            FootprintKind::AppData => Self::AppData,
+            FootprintKind::WebData => Self::WebData,
+            FootprintKind::Cache => Self::Cache,
+            FootprintKind::Logs => Self::Logs,
+            FootprintKind::Preferences => Self::Preferences,
+            FootprintKind::SavedState => Self::SavedState,
+            FootprintKind::HttpStorage => Self::HttpStorage,
+            FootprintKind::AppBundle => Self::AppBundle,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct FootprintItemDto {
+    pub kind: FootprintKindDto,
+    pub path: String,
+    #[ts(type = "number")]
+    pub size: u64,
+}
+
+/// Everything a complete uninstall would remove (feature 009).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AppFootprintDto {
+    pub items: Vec<FootprintItemDto>,
+    pub stored_keys: Vec<AiProviderIdDto>,
+    /// `false` in development builds: the app itself cannot be located.
+    pub bundle_found: bool,
+    /// What the user must type to confirm.
+    pub confirmation_phrase: String,
+}
+
+impl From<AppFootprint> for AppFootprintDto {
+    fn from(f: AppFootprint) -> Self {
+        Self {
+            items: f
+                .items
+                .into_iter()
+                .map(|i| FootprintItemDto {
+                    kind: i.kind.into(),
+                    path: i.path.display().to_string(),
+                    size: i.size.bytes(),
+                })
+                .collect(),
+            stored_keys: f.stored_keys.into_iter().map(Into::into).collect(),
+            bundle_found: f.bundle_found,
+            confirmation_phrase: CONFIRMATION_PHRASE.to_owned(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UninstallFailureDto {
+    pub target: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UninstallReportDto {
+    pub trashed: Vec<String>,
+    pub keys_removed: u32,
+    pub failures: Vec<UninstallFailureDto>,
+    /// The app quits shortly after a successful uninstall.
+    pub quitting: bool,
+}
+
+impl UninstallReportDto {
+    pub fn new(r: UninstallReport, quitting: bool) -> Self {
+        Self {
+            trashed: r.trashed.iter().map(|p| p.display().to_string()).collect(),
+            keys_removed: u32::try_from(r.keys_removed).unwrap_or(u32::MAX),
+            failures: r
+                .failures
+                .into_iter()
+                .map(|f| UninstallFailureDto {
+                    target: f.target,
+                    reason: f.reason,
+                })
+                .collect(),
+            quitting,
+        }
+    }
 }

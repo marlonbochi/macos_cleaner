@@ -56,7 +56,7 @@ pub(crate) fn fingerprint(meta: &Metadata) -> FileFingerprint {
 
 /// Allocated size: what deleting the file actually frees (smaller than `len()` for sparse or
 /// APFS-compressed files).
-fn size_on_disk(meta: &Metadata) -> ByteSize {
+pub(crate) fn size_on_disk(meta: &Metadata) -> ByteSize {
     ByteSize::new(meta.blocks().saturating_mul(BLOCK_UNIT))
 }
 

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use cleaner_core::cancel::CancellationToken;
+use cleaner_core::domain::footprint::{FootprintKind, FootprintLocation};
 use cleaner_core::domain::scan::ScanId;
 use cleaner_core::policy::protected_paths::ProtectedPathPolicy;
 use cleaner_core::services::ai_settings_service::AiSettingsService;
@@ -12,14 +13,15 @@ use cleaner_core::services::catalog_service::CatalogService;
 use cleaner_core::services::diagnosis_service::DiagnosisService;
 use cleaner_core::services::preferences_service::PreferencesService;
 use cleaner_core::services::scan_service::{ScanConfig, ScanService};
+use cleaner_core::services::uninstall_service::UninstallService;
 use cleaner_infra::SystemClock;
 use cleaner_infra::ai::HttpAiProviderFactory;
 use cleaner_infra::db::{
     Database, SqliteAssessmentRepository, SqliteFileEntryRepository, SqliteScanRepository,
     SqliteSettingsRepository,
 };
-use cleaner_infra::fs::JwalkScanner;
-use cleaner_infra::macos::KeychainSecretStore;
+use cleaner_infra::fs::{JwalkScanner, StdDiskUsage};
+use cleaner_infra::macos::{self, KeychainSecretStore, MacTrash};
 
 use crate::error::{AppError, ErrorCode};
 
@@ -35,6 +37,7 @@ pub struct AppState {
     pub diagnosis: DiagnosisService,
     pub ai_settings: AiSettingsService,
     pub preferences: PreferencesService,
+    pub uninstall: UninstallService,
     pub home: PathBuf,
     pub running: RunningScans,
 }
@@ -51,7 +54,7 @@ struct RunningScan {
 
 impl AppState {
     /// Composition root: wires adapters into the core services (dependency injection by hand).
-    pub fn build(app_data_dir: &Path, home: PathBuf) -> Result<Self, AppError> {
+    pub fn build(app_data_dir: &Path, home: PathBuf, bundle_id: &str) -> Result<Self, AppError> {
         let db = Arc::new(
             Database::open(&app_data_dir.join(CATALOG_FILE))
                 .map_err(|e| AppError::new(ErrorCode::Storage, e.to_string()))?,
@@ -70,10 +73,17 @@ impl AppState {
         );
         let settings_repo = Arc::new(SqliteSettingsRepository::new(db.clone()));
         let preferences = PreferencesService::new(settings_repo.clone());
+        let secrets = Arc::new(KeychainSecretStore::new(KEYCHAIN_SERVICE));
         let ai_settings = AiSettingsService::new(
             settings_repo,
-            Arc::new(KeychainSecretStore::new(KEYCHAIN_SERVICE)),
+            secrets.clone(),
             Arc::new(HttpAiProviderFactory::default()),
+        );
+        let uninstall = UninstallService::new(
+            footprint_locations(app_data_dir, &home, bundle_id),
+            Arc::new(StdDiskUsage),
+            Arc::new(MacTrash),
+            secrets,
         );
         let analysis = AnalysisService::new(
             files.clone(),
@@ -95,10 +105,61 @@ impl AppState {
             diagnosis,
             ai_settings,
             preferences,
+            uninstall,
             home,
             running: RunningScans::default(),
         })
     }
+}
+
+/// Every place the app may leave data, for a complete uninstall (feature 009).
+/// Locations that fail validation are left out rather than risk removing something else.
+fn footprint_locations(
+    app_data_dir: &Path,
+    home: &Path,
+    bundle_id: &str,
+) -> Vec<FootprintLocation> {
+    let library = home.join("Library");
+    let mut candidates = vec![
+        (FootprintKind::AppData, app_data_dir.to_path_buf()),
+        (FootprintKind::Cache, library.join("Caches").join(bundle_id)),
+        (
+            FootprintKind::WebData,
+            library.join("WebKit").join(bundle_id),
+        ),
+        (
+            FootprintKind::HttpStorage,
+            library.join("HTTPStorages").join(bundle_id),
+        ),
+        (FootprintKind::Logs, library.join("Logs").join(bundle_id)),
+        (
+            FootprintKind::Preferences,
+            library
+                .join("Preferences")
+                .join(format!("{bundle_id}.plist")),
+        ),
+        (
+            FootprintKind::SavedState,
+            library
+                .join("Saved Application State")
+                .join(format!("{bundle_id}.savedState")),
+        ),
+    ];
+    if let Some(app) = macos::running_app_bundle(bundle_id) {
+        candidates.push((FootprintKind::AppBundle, app));
+    }
+    candidates
+        .into_iter()
+        .filter_map(
+            |(kind, path)| match FootprintLocation::new(kind, path, bundle_id) {
+                Ok(location) => Some(location),
+                Err(e) => {
+                    tracing::warn!(error = %e, "skipping uninstall location");
+                    None
+                }
+            },
+        )
+        .collect()
 }
 
 impl RunningScans {
