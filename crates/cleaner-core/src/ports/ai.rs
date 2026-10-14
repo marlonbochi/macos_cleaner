@@ -3,7 +3,7 @@
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::domain::ai::AiSettings;
+use crate::domain::ai::{AiModel, AiProviderKind, AiSettings};
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum AiError {
@@ -52,6 +52,15 @@ pub trait AiProviderFactory: Send + Sync {
         settings: &AiSettings,
         api_key: Option<String>,
     ) -> Result<Box<dyn AiProvider>, AiError>;
+
+    /// Models the given credentials can use for text generation, best first when the provider
+    /// says so (otherwise newest first).
+    fn list_models(
+        &self,
+        kind: AiProviderKind,
+        base_url: &str,
+        api_key: Option<String>,
+    ) -> Result<Vec<AiModel>, AiError>;
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]

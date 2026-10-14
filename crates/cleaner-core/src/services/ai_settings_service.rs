@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use serde_json::json;
 
-use crate::domain::ai::{AiProviderKind, AiSettings};
+use crate::domain::ai::{AiModel, AiProviderKind, AiSettings};
 use crate::error::CoreError;
 use crate::ports::ai::{AiError, AiProvider, AiProviderFactory, SecretStore, StructuredRequest};
 use crate::ports::repository::SettingsRepository;
@@ -55,6 +55,7 @@ impl AiSettingsService {
     }
 
     pub fn save(&self, settings: &AiSettings, key: ApiKeyChange) -> Result<(), CoreError> {
+        settings.validate()?;
         if let Some(provider) = settings.provider {
             match key {
                 ApiKeyChange::Keep => {}
@@ -74,6 +75,35 @@ impl AiSettingsService {
 
     pub fn has_api_key(&self, provider: AiProviderKind) -> Result<bool, CoreError> {
         Ok(self.secrets.get(&provider.secret_key())?.is_some())
+    }
+
+    /// Lists the models available to the user's credentials, so the UI offers only valid ids.
+    ///
+    /// `api_key` lets the user try a key before saving it; otherwise the stored key is used.
+    pub fn list_models(
+        &self,
+        kind: AiProviderKind,
+        base_url: Option<String>,
+        api_key: Option<String>,
+    ) -> Result<Vec<AiModel>, CoreError> {
+        let probe = AiSettings {
+            provider: Some(kind),
+            model: None,
+            base_url,
+        };
+        probe.validate()?;
+        let base = probe.effective_base_url().ok_or(AiError::NotConfigured)?;
+        let key = match api_key
+            .map(|k| k.trim().to_owned())
+            .filter(|k| !k.is_empty())
+        {
+            Some(typed) => Some(typed),
+            None => self.secrets.get(&kind.secret_key())?,
+        };
+        if kind.needs_api_key() && key.is_none() {
+            return Err(AiError::MissingApiKey(kind.label()).into());
+        }
+        Ok(self.factory.list_models(kind, &base, key)?)
     }
 
     /// The configured provider, or `None` when the user chose local rules only.
@@ -182,6 +212,76 @@ mod tests {
         };
         s.save(&ollama, ApiKeyChange::Keep).unwrap();
         assert!(s.provider().unwrap().is_some());
+    }
+
+    #[test]
+    fn invalid_model_or_url_is_rejected_on_save() {
+        let (s, _) = service(FakeAiFactory::replying(json!({})));
+        let bad_url = AiSettings {
+            base_url: Some("http://evil.example.com".into()),
+            ..claude()
+        };
+        assert!(matches!(
+            s.save(&bad_url, ApiKeyChange::Keep),
+            Err(CoreError::Domain(_))
+        ));
+        let bad_model = AiSettings {
+            model: Some("x; rm".into()),
+            ..claude()
+        };
+        assert!(matches!(
+            s.save(&bad_model, ApiKeyChange::Keep),
+            Err(CoreError::Domain(_))
+        ));
+    }
+
+    #[test]
+    fn lists_models_with_typed_or_stored_key() {
+        let factory = FakeAiFactory::replying(json!({}));
+        let (s, secrets) = service(factory.clone());
+
+        assert!(matches!(
+            s.list_models(AiProviderKind::Gemini, None, None),
+            Err(CoreError::Ai(AiError::MissingApiKey(_)))
+        ));
+
+        let models = s
+            .list_models(AiProviderKind::Gemini, None, Some(" typed ".into()))
+            .unwrap();
+        assert_eq!(models[0].id, "fake-model");
+        secrets.set("ai.gemini.api_key", "stored").unwrap();
+        s.list_models(AiProviderKind::Gemini, None, None).unwrap();
+        s.list_models(
+            AiProviderKind::Ollama,
+            Some("http://box:11434".into()),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            factory.listings(),
+            [
+                (
+                    AiProviderKind::Gemini,
+                    "https://generativelanguage.googleapis.com".to_owned(),
+                    Some("typed".to_owned())
+                ),
+                (
+                    AiProviderKind::Gemini,
+                    "https://generativelanguage.googleapis.com".to_owned(),
+                    Some("stored".to_owned())
+                ),
+                (AiProviderKind::Ollama, "http://box:11434".to_owned(), None),
+            ]
+        );
+        assert!(
+            s.list_models(
+                AiProviderKind::OpenAi,
+                Some("ftp://x".into()),
+                Some("k".into())
+            )
+            .is_err()
+        );
     }
 
     #[test]

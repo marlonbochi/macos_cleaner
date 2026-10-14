@@ -1,11 +1,12 @@
 //! AI provider adapters (Claude, OpenAI, Gemini, Ollama) and the factory that builds them.
 
 mod http;
+mod models;
 mod providers;
 
 use std::time::Duration;
 
-use cleaner_core::domain::ai::{AiProviderKind, AiSettings};
+use cleaner_core::domain::ai::{AiModel, AiProviderKind, AiSettings, validate_base_url};
 use cleaner_core::ports::ai::{AiError, AiProvider, AiProviderFactory};
 
 use self::http::JsonHttp;
@@ -47,7 +48,9 @@ impl AiProviderFactory for HttpAiProviderFactory {
         let base_url = settings
             .effective_base_url()
             .ok_or(AiError::NotConfigured)?;
-        validate(&model, &base_url)?;
+        settings
+            .validate()
+            .map_err(|e| AiError::InvalidConfig(e.to_string()))?;
         let http = JsonHttp::new(self.timeout, self.retries, self.backoff)?;
         let key = || {
             api_key
@@ -81,22 +84,22 @@ impl AiProviderFactory for HttpAiProviderFactory {
             }),
         })
     }
-}
 
-/// The model id is interpolated into URLs (Gemini) and the base URL is user-provided.
-fn validate(model: &str, base_url: &str) -> Result<(), AiError> {
-    let model_ok = model
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':' | '/'));
-    if !model_ok || model.contains("..") {
-        return Err(AiError::InvalidConfig(format!("invalid model id: {model}")));
+    fn list_models(
+        &self,
+        kind: AiProviderKind,
+        base_url: &str,
+        api_key: Option<String>,
+    ) -> Result<Vec<AiModel>, AiError> {
+        validate_base_url(kind, base_url).map_err(|e| AiError::InvalidConfig(e.to_string()))?;
+        // Listing is quick; do not wait the long analysis timeout for an unreachable server.
+        let http = JsonHttp::new(
+            self.timeout.min(Duration::from_secs(20)),
+            self.retries,
+            self.backoff,
+        )?;
+        models::list(&http, kind, base_url, api_key.as_deref())
     }
-    if !(base_url.starts_with("https://") || base_url.starts_with("http://")) {
-        return Err(AiError::InvalidConfig(
-            "base URL must start with http:// or https://".into(),
-        ));
-    }
-    Ok(())
 }
 
 #[cfg(test)]

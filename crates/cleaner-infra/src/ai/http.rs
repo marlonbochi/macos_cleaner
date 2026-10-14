@@ -36,9 +36,22 @@ impl JsonHttp {
         headers: &[(&str, &str)],
         body: &Value,
     ) -> Result<Value, AiError> {
+        self.send(headers, || self.client.post(url).json(body))
+    }
+
+    /// GETs `url` and returns the JSON response.
+    pub(crate) fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<Value, AiError> {
+        self.send(headers, || self.client.get(url))
+    }
+
+    fn send(
+        &self,
+        headers: &[(&str, &str)],
+        build: impl Fn() -> reqwest::blocking::RequestBuilder,
+    ) -> Result<Value, AiError> {
         let mut attempt = 0;
         loop {
-            let mut request = self.client.post(url).json(body);
+            let mut request = build();
             for (name, value) in headers {
                 request = request.header(*name, *value);
             }

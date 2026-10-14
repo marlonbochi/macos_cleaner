@@ -256,13 +256,16 @@ impl FileEntryRepository for InMemoryFileEntryRepository {
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::domain::ai::AiSettings;
+use crate::domain::ai::{AiModel, AiProviderKind, AiSettings};
 use crate::domain::file_entry::FileFingerprint;
 use crate::domain::risk::{AssessmentKey, RiskAssessment};
 use crate::ports::ai::{
     AiError, AiProvider, AiProviderFactory, SecretError, SecretStore, StructuredRequest,
 };
 use crate::ports::repository::{AssessmentRepository, SettingsRepository};
+
+/// `(provider, base URL, API key)` of one model listing request.
+pub type Listing = (AiProviderKind, String, Option<String>);
 
 type Responder = dyn Fn(&StructuredRequest<'_>) -> Result<serde_json::Value, AiError> + Send + Sync;
 
@@ -271,6 +274,7 @@ type Responder = dyn Fn(&StructuredRequest<'_>) -> Result<serde_json::Value, AiE
 pub struct FakeAiFactory {
     responder: Arc<Responder>,
     requests: Arc<Mutex<Vec<(String, String)>>>,
+    listings: Arc<Mutex<Vec<Listing>>>,
 }
 
 impl std::fmt::Debug for FakeAiFactory {
@@ -294,6 +298,7 @@ impl FakeAiFactory {
         Self {
             responder: Arc::new(f),
             requests: Arc::default(),
+            listings: Arc::default(),
         }
     }
 
@@ -305,6 +310,11 @@ impl FakeAiFactory {
             .iter()
             .map(|(_, user)| user.clone())
             .collect()
+    }
+
+    /// `(provider, base URL, key)` of every model listing requested so far.
+    pub fn listings(&self) -> Vec<Listing> {
+        self.listings.lock().unwrap().clone()
     }
 
     /// Schema names of the requests sent so far, in order.
@@ -325,6 +335,22 @@ impl AiProviderFactory for FakeAiFactory {
         _api_key: Option<String>,
     ) -> Result<Box<dyn AiProvider>, AiError> {
         Ok(Box::new(self.clone()))
+    }
+
+    fn list_models(
+        &self,
+        kind: AiProviderKind,
+        base_url: &str,
+        api_key: Option<String>,
+    ) -> Result<Vec<AiModel>, AiError> {
+        self.listings
+            .lock()
+            .unwrap()
+            .push((kind, base_url.to_owned(), api_key));
+        Ok(vec![AiModel {
+            id: "fake-model".into(),
+            label: "Fake Model".into(),
+        }])
     }
 }
 

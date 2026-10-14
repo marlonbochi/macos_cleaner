@@ -588,3 +588,20 @@ pub struct ConnectionTestDto {
     pub provider: String,
     pub model: String,
 }
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AiModelDto {
+    pub id: String,
+    pub label: String,
+}
+
+impl From<cleaner_core::domain::ai::AiModel> for AiModelDto {
+    fn from(m: cleaner_core::domain::ai::AiModel) -> Self {
+        Self {
+            id: m.id,
+            label: m.label,
+        }
+    }
+}

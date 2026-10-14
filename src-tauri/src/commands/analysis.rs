@@ -6,7 +6,8 @@ use cleaner_core::services::ai_settings_service::ApiKeyChange;
 use tauri::State;
 
 use crate::dto::{
-    AiProviderInfoDto, AiSettingsDto, AnalysisDto, ConnectionTestDto, SaveAiSettingsInput,
+    AiModelDto, AiProviderIdDto, AiProviderInfoDto, AiSettingsDto, AnalysisDto, ConnectionTestDto,
+    SaveAiSettingsInput,
 };
 use crate::error::{AppError, CommandResult, ErrorCode};
 use crate::state::AppState;
@@ -110,4 +111,26 @@ pub async fn test_ai_connection(state: State<'_, AppState>) -> CommandResult<Con
         .await
         .map_err(|e| AppError::new(ErrorCode::Internal, e.to_string()))??;
     Ok(ConnectionTestDto { provider, model })
+}
+
+/// Models available to the given (or stored) credentials, so the UI offers only valid ids.
+/// `api_key` lets the user try a key before saving it; it is never stored by this command.
+#[tauri::command]
+pub async fn list_ai_models(
+    state: State<'_, AppState>,
+    provider: AiProviderIdDto,
+    base_url: Option<String>,
+    api_key: Option<String>,
+) -> CommandResult<Vec<AiModelDto>> {
+    let service = state.ai_settings.clone();
+    let base_url = base_url
+        .map(|u| u.trim().to_owned())
+        .filter(|u| !u.is_empty());
+    tauri::async_runtime::spawn_blocking(move || {
+        service.list_models(provider.into(), base_url, api_key)
+    })
+    .await
+    .map_err(|e| AppError::new(ErrorCode::Internal, e.to_string()))?
+    .map(|models| models.into_iter().map(Into::into).collect())
+    .map_err(Into::into)
 }

@@ -49,6 +49,7 @@ pub fn run() {
             commands::analysis::get_ai_settings,
             commands::analysis::save_ai_settings,
             commands::analysis::test_ai_connection,
+            commands::analysis::list_ai_models,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = result {
