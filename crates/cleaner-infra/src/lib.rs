@@ -4,3 +4,4 @@
 //! AI providers and macOS integrations.
 
 pub mod db;
+pub mod fs;

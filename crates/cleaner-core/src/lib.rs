@@ -11,6 +11,7 @@ pub mod domain;
 pub mod error;
 pub mod policy;
 pub mod ports;
+pub mod services;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
