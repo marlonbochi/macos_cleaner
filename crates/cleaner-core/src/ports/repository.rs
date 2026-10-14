@@ -89,3 +89,23 @@ pub trait FileEntryRepository: Send + Sync {
     fn get_many(&self, ids: &[FileId]) -> Result<Vec<FileEntry>, RepoError>;
     fn remove(&self, ids: &[FileId]) -> Result<(), RepoError>;
 }
+
+/// Cache of risk assessments, keyed by path + fingerprint + evaluator version (FR-015).
+pub trait AssessmentRepository: Send + Sync {
+    fn find(
+        &self,
+        key: &crate::domain::risk::AssessmentKey,
+    ) -> Result<Option<crate::domain::risk::RiskAssessment>, RepoError>;
+    fn save(&self, assessment: &crate::domain::risk::RiskAssessment) -> Result<(), RepoError>;
+    /// Most recent assessment of each path, from any evaluator, whose fingerprint still matches.
+    fn latest_matching(
+        &self,
+        items: &[(PathBuf, crate::domain::file_entry::FileFingerprint)],
+    ) -> Result<Vec<crate::domain::risk::RiskAssessment>, RepoError>;
+}
+
+/// Small key/value store for user settings (JSON values).
+pub trait SettingsRepository: Send + Sync {
+    fn get(&self, key: &str) -> Result<Option<serde_json::Value>, RepoError>;
+    fn set(&self, key: &str, value: &serde_json::Value) -> Result<(), RepoError>;
+}

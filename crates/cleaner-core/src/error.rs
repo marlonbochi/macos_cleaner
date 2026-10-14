@@ -42,4 +42,8 @@ pub enum CoreError {
     ScanInProgress,
     #[error("not found: {0}")]
     NotFound(String),
+    #[error(transparent)]
+    Ai(#[from] crate::ports::ai::AiError),
+    #[error(transparent)]
+    Secret(#[from] crate::ports::ai::SecretError),
 }

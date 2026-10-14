@@ -122,13 +122,67 @@ pub struct AssessmentKey {
     pub evaluator_version: String,
 }
 
+/// What the user should do about an item, beyond "delete or not".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Recommendation {
+    /// Can go to the Trash as is.
+    DeleteSafely,
+    /// Better removed through the owning app or an official command (e.g. `xcrun simctl`).
+    UseAppOrCommand,
+    /// Worth keeping, but not necessarily on this disk (cloud, external drive).
+    MoveToCloudOrExternal,
+    /// Should stay where it is.
+    Keep,
+    /// Not enough information; the user must look at it.
+    ReviewManually,
+}
+
+impl Recommendation {
+    pub const ALL: [Self; 5] = [
+        Self::DeleteSafely,
+        Self::UseAppOrCommand,
+        Self::MoveToCloudOrExternal,
+        Self::Keep,
+        Self::ReviewManually,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::DeleteSafely => "delete-safely",
+            Self::UseAppOrCommand => "use-app-or-command",
+            Self::MoveToCloudOrExternal => "move-to-cloud-or-external",
+            Self::Keep => "keep",
+            Self::ReviewManually => "review-manually",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|r| r.as_str() == value)
+    }
+}
+
+/// A shell command the user may run themselves. The app only displays it (Constitution IV).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SuggestedCommand {
+    pub command: String,
+    pub description: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RiskAssessment {
     pub path: PathBuf,
     pub fingerprint: FileFingerprint,
     pub level: RiskLevel,
     pub category: RiskCategory,
+    /// What the item is, in one sentence.
+    pub summary: String,
+    /// Why it has this risk level / what happens if it is deleted.
     pub explanation: String,
+    pub recommendation: Recommendation,
+    /// Ordered, human steps (e.g. "Xcode › Settings › Platforms").
+    pub steps: Vec<String>,
+    pub commands: Vec<SuggestedCommand>,
     pub source: AssessmentSource,
     pub evaluator_version: String,
     pub created_at: i64,
@@ -184,6 +238,14 @@ mod tests {
         }
         assert_eq!(RiskLevel::parse("nope"), None);
         assert_eq!(RiskCategory::parse("nope"), None);
+    }
+
+    #[test]
+    fn recommendation_round_trips_through_strings() {
+        for r in Recommendation::ALL {
+            assert_eq!(Recommendation::parse(r.as_str()), Some(r));
+        }
+        assert_eq!(Recommendation::parse("?"), None);
     }
 
     #[test]

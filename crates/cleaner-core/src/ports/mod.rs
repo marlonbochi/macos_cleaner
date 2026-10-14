@@ -1,5 +1,6 @@
 //! Ports (hexagonal architecture): traits the core depends on, implemented by adapters.
 
+pub mod ai;
 pub mod filesystem;
 pub mod repository;
 

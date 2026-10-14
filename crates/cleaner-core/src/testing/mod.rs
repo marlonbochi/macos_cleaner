@@ -250,3 +250,134 @@ impl FileEntryRepository for InMemoryFileEntryRepository {
         Ok(())
     }
 }
+
+// ── AI, secrets, settings and assessments ────────────────────────────────
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use crate::domain::ai::AiSettings;
+use crate::domain::file_entry::FileFingerprint;
+use crate::domain::risk::{AssessmentKey, RiskAssessment};
+use crate::ports::ai::{
+    AiError, AiProvider, AiProviderFactory, SecretError, SecretStore, StructuredRequest,
+};
+use crate::ports::repository::{AssessmentRepository, SettingsRepository};
+
+/// Factory whose providers return a canned reply (or error) and record every user message.
+#[derive(Debug, Clone)]
+pub struct FakeAiFactory {
+    reply: Result<serde_json::Value, AiError>,
+    requests: Arc<Mutex<Vec<String>>>,
+}
+
+impl FakeAiFactory {
+    pub fn replying(reply: serde_json::Value) -> Self {
+        Self {
+            reply: Ok(reply),
+            requests: Arc::default(),
+        }
+    }
+
+    pub fn failing(error: AiError) -> Self {
+        Self {
+            reply: Err(error),
+            requests: Arc::default(),
+        }
+    }
+
+    /// User messages sent so far, in order.
+    pub fn requests(&self) -> Vec<String> {
+        self.requests.lock().unwrap().clone()
+    }
+}
+
+impl AiProviderFactory for FakeAiFactory {
+    fn create(
+        &self,
+        _settings: &AiSettings,
+        _api_key: Option<String>,
+    ) -> Result<Box<dyn AiProvider>, AiError> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl AiProvider for FakeAiFactory {
+    fn complete_json(&self, request: &StructuredRequest<'_>) -> Result<serde_json::Value, AiError> {
+        self.requests.lock().unwrap().push(request.user.to_owned());
+        self.reply.clone()
+    }
+
+    fn descriptor(&self) -> (String, String) {
+        ("fake".into(), "fake-model".into())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct InMemorySecretStore(Mutex<HashMap<String, String>>);
+
+impl SecretStore for InMemorySecretStore {
+    fn get(&self, key: &str) -> Result<Option<String>, SecretError> {
+        Ok(self.0.lock().unwrap().get(key).cloned())
+    }
+    fn set(&self, key: &str, value: &str) -> Result<(), SecretError> {
+        self.0.lock().unwrap().insert(key.into(), value.into());
+        Ok(())
+    }
+    fn delete(&self, key: &str) -> Result<(), SecretError> {
+        self.0.lock().unwrap().remove(key);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct InMemorySettingsRepository(Mutex<HashMap<String, serde_json::Value>>);
+
+impl SettingsRepository for InMemorySettingsRepository {
+    fn get(&self, key: &str) -> Result<Option<serde_json::Value>, RepoError> {
+        Ok(self.0.lock().unwrap().get(key).cloned())
+    }
+    fn set(&self, key: &str, value: &serde_json::Value) -> Result<(), RepoError> {
+        self.0.lock().unwrap().insert(key.into(), value.clone());
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct InMemoryAssessmentRepository(Mutex<Vec<RiskAssessment>>);
+
+impl AssessmentRepository for InMemoryAssessmentRepository {
+    fn find(&self, key: &AssessmentKey) -> Result<Option<RiskAssessment>, RepoError> {
+        Ok(self
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .rev()
+            .find(|a| &a.key() == key)
+            .cloned())
+    }
+
+    fn save(&self, assessment: &RiskAssessment) -> Result<(), RepoError> {
+        let mut all = self.0.lock().unwrap();
+        all.retain(|a| a.key() != assessment.key());
+        all.push(assessment.clone());
+        Ok(())
+    }
+
+    fn latest_matching(
+        &self,
+        items: &[(PathBuf, FileFingerprint)],
+    ) -> Result<Vec<RiskAssessment>, RepoError> {
+        let all = self.0.lock().unwrap();
+        Ok(items
+            .iter()
+            .filter_map(|(path, fp)| {
+                all.iter()
+                    .filter(|a| &a.path == path && &a.fingerprint == fp)
+                    .max_by_key(|a| a.created_at)
+                    .cloned()
+            })
+            .collect())
+    }
+}

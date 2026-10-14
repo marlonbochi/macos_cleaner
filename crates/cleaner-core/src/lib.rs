@@ -6,6 +6,7 @@
 //! capability is a trait in [`ports`], implemented by adapters in `cleaner-infra`
 //! (hexagonal architecture, Constitution II).
 
+pub mod analysis;
 pub mod cancel;
 pub mod domain;
 pub mod error;
