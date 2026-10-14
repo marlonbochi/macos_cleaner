@@ -27,14 +27,14 @@ vêm antes da implementação e devem falhar antes de serem satisfeitas.
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Instalar toolchain Rust e criar `rust-toolchain.toml` (stable + rustfmt, clippy, llvm-tools-preview)
-- [ ] T002 Scaffold Tauri v2 + Vue 3 + TS (Vite) na raiz: `package.json`, `vite.config.ts`, `index.html`, `src/`, `src-tauri/`
-- [ ] T003 Criar workspace Cargo em `Cargo.toml` com membros `crates/cleaner-core`, `crates/cleaner-infra`, `src-tauri`
-- [ ] T004 [P] Configurar lints Rust no workspace (`[workspace.lints]`: `clippy::unwrap_used`, `expect_used`, `pedantic` seletivo) e `rustfmt.toml`
-- [ ] T005 [P] Configurar ESLint (flat config, `eslint-plugin-vue`, `typescript-eslint`), Prettier e `tsconfig` strict
-- [ ] T006 [P] Configurar Vitest + Vue Test Utils + cobertura v8 (limite 70%) em `vitest.config.ts`
-- [ ] T007 [P] Criar `.github/workflows/ci.yml` (jobs rust, frontend, build) e `.github/dependabot.yml`
-- [ ] T008 [P] Criar `README.md` e `CLAUDE.md` com comandos de desenvolvimento e referência à constituição
+- [X] T001 Instalar toolchain Rust e criar `rust-toolchain.toml` (stable + rustfmt, clippy, llvm-tools-preview)
+- [X] T002 Scaffold Tauri v2 + Vue 3 + TS (Vite) na raiz: `package.json`, `vite.config.ts`, `index.html`, `src/`, `src-tauri/`
+- [X] T003 Criar workspace Cargo em `Cargo.toml` com membros `crates/cleaner-core`, `crates/cleaner-infra`, `src-tauri`
+- [X] T004 [P] Configurar lints Rust no workspace (`[workspace.lints]`: `clippy::unwrap_used`, `expect_used`, `pedantic` seletivo) e `rustfmt.toml`
+- [X] T005 [P] Configurar ESLint (flat config, `eslint-plugin-vue`, `typescript-eslint`), Prettier e `tsconfig` strict
+- [X] T006 [P] Configurar Vitest + Vue Test Utils + cobertura v8 (limite 70%) em `vitest.config.ts`
+- [X] T007 [P] Criar `.github/workflows/ci.yml` (jobs rust, frontend, build) e `.github/dependabot.yml`
+- [X] T008 [P] Criar `README.md` e `CLAUDE.md` com comandos de desenvolvimento e referência à constituição
 
 ---
 
@@ -44,23 +44,23 @@ vêm antes da implementação e devem falhar antes de serem satisfeitas.
 
 ### Tests
 
-- [ ] T009 [P] Testes de `ByteSize` (formatação base 1000) e `RiskLevel` (ordenação) em `crates/cleaner-core/src/domain/size.rs` e `risk.rs`
-- [ ] T010 [P] Testes (incl. `proptest`) da `ProtectedPathPolicy` em `crates/cleaner-core/src/policy/protected_paths.rs`
-- [ ] T011 [P] Testes de integração de migrações SQLite (aplica V001 em banco temporário) em `crates/cleaner-infra/tests/db_migrations.rs`
+- [X] T009 [P] Testes de `ByteSize` (formatação base 1000) e `RiskLevel` (ordenação) em `crates/cleaner-core/src/domain/size.rs` e `risk.rs`
+- [X] T010 [P] Testes (incl. `proptest`) da `ProtectedPathPolicy` em `crates/cleaner-core/src/policy/protected_paths.rs`
+- [X] T011 [P] Testes de integração de migrações SQLite (aplica V001 em banco temporário) em `crates/cleaner-infra/tests/db_migrations.rs`
 
 ### Implementation
 
-- [ ] T012 [P] Value objects e entidades de domínio em `crates/cleaner-core/src/domain/` (scan, file_entry, risk, app, cloud, action, size)
-- [ ] T013 [P] Ports (traits) conforme `contracts/core-ports.md` em `crates/cleaner-core/src/ports/`
-- [ ] T014 Erros de domínio com `thiserror` em `crates/cleaner-core/src/error.rs`
-- [ ] T015 `ProtectedPathPolicy` em `crates/cleaner-core/src/policy/protected_paths.rs`
-- [ ] T016 Fakes in-memory dos ports (feature `testing`) em `crates/cleaner-core/src/testing/`
-- [ ] T017 Conexão SQLite (WAL, pragmas) + `V001__initial.sql` + runner de migrações em `crates/cleaner-infra/src/db/`
-- [ ] T018 `AppError` + conversões para IPC em `src-tauri/src/error.rs`; `tracing` configurado em `src-tauri/src/lib.rs`
-- [ ] T019 Composition root e `AppState` em `src-tauri/src/lib.rs` e `src-tauri/src/state.rs`
-- [ ] T020 [P] Geração de tipos `ts-rs` para `src/types/generated/` + script `npm run gen:types` + checagem de diff no CI
-- [ ] T021 [P] Layout base da UI: router, navegação lateral, tema claro/escuro, `vue-i18n` pt-BR em `src/`
-- [ ] T022 [P] Camada `src/services/ipc/` (wrapper tipado de `invoke` e `Channel`) com testes usando `mockIPC`
+- [X] T012 [P] Value objects e entidades de domínio em `crates/cleaner-core/src/domain/` (scan, file_entry, risk, app, cloud, action, size)
+- [X] T013 [P] Ports (traits) conforme `contracts/core-ports.md` em `crates/cleaner-core/src/ports/`
+- [X] T014 Erros de domínio com `thiserror` em `crates/cleaner-core/src/error.rs`
+- [X] T015 `ProtectedPathPolicy` em `crates/cleaner-core/src/policy/protected_paths.rs`
+- [X] T016 Fakes in-memory dos ports (feature `testing`) em `crates/cleaner-core/src/testing/`
+- [X] T017 Conexão SQLite (WAL, pragmas) + `V001__initial.sql` + runner de migrações em `crates/cleaner-infra/src/db/`
+- [X] T018 `AppError` + conversões para IPC em `src-tauri/src/error.rs`; `tracing` configurado em `src-tauri/src/lib.rs`
+- [X] T019 Composition root e `AppState` em `src-tauri/src/lib.rs` e `src-tauri/src/state.rs`
+- [X] T020 [P] Geração de tipos `ts-rs` para `src/types/generated/` + script `npm run gen:types` + checagem de diff no CI
+- [X] T021 [P] Layout base da UI: router, navegação lateral, tema claro/escuro, `vue-i18n` pt-BR em `src/`
+- [X] T022 [P] Camada `src/services/ipc/` (wrapper tipado de `invoke` e `Channel`) com testes usando `mockIPC`
 
 **Checkpoint**: fundação pronta; `cargo test`, `npm test` e CI verdes.
 
@@ -74,21 +74,21 @@ vêm antes da implementação e devem falhar antes de serem satisfeitas.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T023 [P] [US1] Script de fixture `scripts/make-fixture-tree.sh` (arquivos esparsos, hard link, symlink, pasta sem permissão)
-- [ ] T024 [P] [US1] Teste de integração do `JwalkScanner` (tamanho em disco, hard link uma vez, symlink ignorado, inacessível reportado, não cruza volume, cancelamento) em `crates/cleaner-infra/tests/scanner_fs.rs`
-- [ ] T025 [P] [US1] Teste de integração dos repositórios `Scan`/`FileEntry` (batch insert, paginação ordenada, filtros) em `crates/cleaner-infra/tests/sqlite_catalog.rs`
-- [ ] T026 [P] [US1] Testes unitários do `ScanService` com fakes (agregação de pastas, limite mínimo, transições de estado, incremental) em `crates/cleaner-core/src/services/scan_service.rs`
-- [ ] T027 [P] [US1] Testes dos stores `scan`/`catalog` e componentes `ScanProgress`/`FileTable` com `mockIPC` em `src/**/__tests__/`
+- [X] T023 [P] [US1] Script de fixture `scripts/make-fixture-tree.sh` (arquivos esparsos, hard link, symlink, pasta sem permissão)
+- [X] T024 [P] [US1] Teste de integração do `JwalkScanner` (tamanho em disco, hard link uma vez, symlink ignorado, inacessível reportado, não cruza volume, cancelamento) em `crates/cleaner-infra/tests/scanner_fs.rs`
+- [X] T025 [P] [US1] Teste de integração dos repositórios `Scan`/`FileEntry` (batch insert, paginação ordenada, filtros) em `crates/cleaner-infra/tests/sqlite_catalog.rs`
+- [X] T026 [P] [US1] Testes unitários do `ScanService` com fakes (agregação de pastas, limite mínimo, transições de estado, incremental) em `crates/cleaner-core/src/services/scan_service.rs`
+- [X] T027 [P] [US1] Testes dos stores `scan`/`catalog` e componentes `ScanProgress`/`FileTable` com `mockIPC` em `src/**/__tests__/`
 
 ### Implementation for User Story 1
 
-- [ ] T028 [US1] `JwalkScanner` + `FileInspector` em `crates/cleaner-infra/src/fs/`
-- [ ] T029 [US1] `SqliteScanRepository` e `SqliteFileEntryRepository` em `crates/cleaner-infra/src/db/`
-- [ ] T030 [US1] `ScanService` (agregação bottom-up, batches, cancelamento, incremental) e `CatalogService` em `crates/cleaner-core/src/services/`
-- [ ] T031 [US1] Comandos `start_scan`, `cancel_scan`, `get_latest_scan`, `list_files`, `list_folder_children`, `reveal_in_finder` em `src-tauri/src/commands/scan.rs` e `catalog.rs`
-- [ ] T032 [US1] Permissões: `get_permissions_status`, `open_full_disk_access_settings` em `crates/cleaner-infra/src/macos/permissions.rs` e `src-tauri/src/commands/settings.rs`
-- [ ] T033 [US1] Telas `ScanView` (escolha de raízes, progresso, cancelar, aviso de Acesso Total) e `FilesView` (lista virtualizada, filtros, navegação por pasta) em `src/views/`
-- [ ] T034 [US1] Stores Pinia `scan` e `catalog` em `src/stores/`
+- [X] T028 [US1] `JwalkScanner` + `FileInspector` em `crates/cleaner-infra/src/fs/`
+- [X] T029 [US1] `SqliteScanRepository` e `SqliteFileEntryRepository` em `crates/cleaner-infra/src/db/`
+- [X] T030 [US1] `ScanService` (agregação bottom-up, batches, cancelamento, incremental) e `CatalogService` em `crates/cleaner-core/src/services/`
+- [X] T031 [US1] Comandos `start_scan`, `cancel_scan`, `get_latest_scan`, `list_files`, `list_folder_children`, `reveal_in_finder` em `src-tauri/src/commands/scan.rs` e `catalog.rs`
+- [X] T032 [US1] Permissões: `get_permissions_status`, `open_full_disk_access_settings` em `crates/cleaner-infra/src/macos/permissions.rs` e `src-tauri/src/commands/settings.rs`
+- [X] T033 [US1] Telas `ScanView` (escolha de raízes, progresso, cancelar, aviso de Acesso Total) e `FilesView` (lista virtualizada, filtros, navegação por pasta) em `src/views/`
+- [X] T034 [US1] Stores Pinia `scan` e `catalog` em `src/stores/`
 
 **Checkpoint**: MVP funcional — varredura e ranking ponta a ponta.
 

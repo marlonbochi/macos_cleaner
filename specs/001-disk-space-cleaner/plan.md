@@ -21,7 +21,7 @@ TypeScript 5.x (strict); Node 22 LTS
 **Primary Dependencies**: Tauri 2.x, `jwalk`, `rusqlite` (bundled) + `rusqlite_migration`,
 `serde`/`serde_json`, `thiserror`, `tracing`, `reqwest` (rustls), `trash`, `keyring`
 (apple-native), `plist`, `objc2-foundation`, `ts-rs`, `crossbeam-channel`; Vue 3, Pinia,
-Vue Router, vue-i18n, `@tanstack/vue-virtual`, `@tauri-apps/api` v2
+Vue Router, vue-i18n, `@tauri-apps/api` v2, `tauri-plugin-dialog`
 
 **Storage**: SQLite (WAL) em `~/Library/Application Support/<bundle-id>/catalog.sqlite3`;
 segredos no Keychain

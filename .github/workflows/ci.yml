@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, tests, coverage)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      # tauri-build checks that the frontend dist folder exists at compile time.
+      - run: mkdir -p dist
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Tests with coverage (core + infra >= 80% lines)
+        run: >
+          cargo llvm-cov --workspace --all-features
+          --ignore-filename-regex 'src-tauri/'
+          --fail-under-lines 80
+          --lcov --output-path lcov.info
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage
+          path: lcov.info
+
+  frontend:
+    name: Frontend (lint, types, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage/
+
+  types:
+    name: TS bindings are up to date
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: mkdir -p dist
+      - run: npm run gen:types
+      - name: Fail if generated types changed
+        run: git diff --exit-code -- src/types/generated
+
+  build:
+    name: Build macOS app
+    needs: [rust, frontend]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run tauri build -- --bundles dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-cleaner-dmg
+          path: target/release/bundle/dmg/*.dmg
+          retention-days: 7

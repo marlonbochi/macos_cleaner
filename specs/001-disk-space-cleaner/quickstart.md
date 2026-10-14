@@ -34,11 +34,12 @@ cargo llvm-cov --workspace --fail-under-lines 80
 ## Cenários de validação manual
 
 Gere uma árvore de teste com `scripts/make-fixture-tree.sh /tmp/mc-fixture` (cria arquivos de
-5 GB/2 GB esparsos, 50 MB, hard link, symlink, pasta sem permissão).
+500 MB/200 MB/50 MB com dados reais, 150 arquivos pequenos, hard link, symlink, bundle `.app` e
+pasta sem permissão).
 
 | # | História | Passos | Resultado esperado |
 |---|---|---|---|
-| 1 | US1 | Varrer `/tmp/mc-fixture` com limite 100 MB | Lista: 5 GB, 2 GB; sem o de 50 MB; pasta sem permissão listada como inacessível; hard link contado uma vez |
+| 1 | US1 | Varrer `/tmp/mc-fixture` com limite 100 MB | Lista: 500 MB, 200 MB e a pasta `game` (~150 MB); sem o de 50 MB; pasta sem permissão listada como inacessível; hard link contado uma vez |
 | 2 | US1 | Iniciar varredura de `~` e cancelar | Para em ≤ 2 s; resultados parciais marcados "incompleto" |
 | 3 | US1 | Fechar e reabrir o app | Último catálogo exibido com data |
 | 4 | US2 | IA = nenhuma; avaliar os 20 maiores | Todos com nível + explicação, origem "Regras locais" |

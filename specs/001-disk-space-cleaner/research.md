@@ -37,13 +37,15 @@ Cada seção segue o formato Decision / Rationale / Alternatives considered.
 
 ## R3. Re-varredura incremental
 
-- **Decision**: na re-varredura, comparar `(size, mtime, inode)` de cada entrada com o catálogo;
-  só itens alterados invalidam avaliações. Para diretórios, `mtime` inalterado não garante
-  subárvore inalterada no APFS, então a árvore é sempre percorrida, mas a escrita no banco e a
-  reavaliação são evitadas (é aí que está o custo).
-- **Rationale**: atende SC-003 sem depender de FSEvents.
-- **Alternatives considered**: FSEvents (`notify` crate) com journal persistido — mais rápido,
-  mas complexo; fica como evolução futura.
+- **Decision** (revisada na implementação): cada varredura grava apenas as entradas acima do
+  limite (poucos milhares de linhas, custo baixo) e, ao concluir, substitui o catálogo anterior.
+  A parte cara de reprocessar — a avaliação de risco — é incremental: avaliações são cacheadas
+  por `(caminho, fingerprint, versão do avaliador)` e reaproveitadas enquanto o item não muda.
+  Varreduras canceladas não substituem o último catálogo completo.
+- **Rationale**: atende FR-007/SC-003 no ponto de maior custo sem manter dois catálogos em
+  sincronia; o walk em si é dominado por I/O de metadados e não tem atalho confiável no APFS.
+- **Alternatives considered**: comparar fingerprints e escrever só o delta (complexidade sem
+  ganho mensurável); FSEvents (`notify` crate) com journal persistido — evolução futura.
 
 ## R4. Persistência
 
@@ -164,8 +166,8 @@ Cada seção segue o formato Decision / Rationale / Alternatives considered.
 
 ## R13. Frontend
 
-- **Decision**: Vue 3 (Composition API, `<script setup>`), TypeScript `strict`, Pinia, Vue Router,
-  `@tanstack/vue-virtual` para listas longas, i18n com `vue-i18n` (pt-BR inicial), sem kit de UI
+- **Decision**: Vue 3 (Composition API, `<script setup>`), TypeScript `strict`, Pinia, Vue Router, paginação no banco
+  (100 itens por página) em vez de virtualização, i18n com `vue-i18n` (pt-BR inicial), sem kit de UI
   pesado (CSS próprio com variáveis + modo escuro). Camada `services/ipc` encapsula `invoke` e
   `Channel` (Adapter), stores consomem os services, componentes só apresentam.
 - **Rationale**: lógica fora dos componentes (Princípio II) e mínimo de dependências (VI).
