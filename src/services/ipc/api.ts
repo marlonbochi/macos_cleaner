@@ -3,6 +3,7 @@ import type { AiProviderIdDto } from "@/types/generated/AiProviderIdDto";
 import type { AiSettingsDto } from "@/types/generated/AiSettingsDto";
 import type { AnalysisDto } from "@/types/generated/AnalysisDto";
 import type { ConnectionTestDto } from "@/types/generated/ConnectionTestDto";
+import type { DiagnosisItemDto } from "@/types/generated/DiagnosisItemDto";
 import type { FileEntryDto } from "@/types/generated/FileEntryDto";
 import type { FileFilterDto } from "@/types/generated/FileFilterDto";
 import type { FileSortDto } from "@/types/generated/FileSortDto";
@@ -116,6 +117,21 @@ export class AnalysisApi {
   }
 }
 
+/** AI diagnosis of the largest items of a scan (feature 008). */
+export class DiagnosisApi {
+  constructor(private readonly transport: Transport) {}
+
+  /** The diagnosed items with their stored analyses; never calls the AI. */
+  get(scanId: number): Promise<DiagnosisItemDto[]> {
+    return this.transport.invoke("get_ai_diagnosis", { scanId });
+  }
+
+  /** Sends the items to the AI; unchanged items come from the cache unless `force`. */
+  run(scanId: number, force = false): Promise<DiagnosisItemDto[]> {
+    return this.transport.invoke("run_ai_diagnosis", { scanId, force });
+  }
+}
+
 export class SettingsApi {
   constructor(private readonly transport: Transport) {}
 
@@ -159,6 +175,7 @@ export class Api {
   readonly catalog: CatalogApi;
   readonly system: SystemApi;
   readonly analysis: AnalysisApi;
+  readonly diagnosis: DiagnosisApi;
   readonly settings: SettingsApi;
   readonly preferences: PreferencesApi;
 
@@ -167,6 +184,7 @@ export class Api {
     this.catalog = new CatalogApi(transport);
     this.system = new SystemApi(transport);
     this.analysis = new AnalysisApi(transport);
+    this.diagnosis = new DiagnosisApi(transport);
     this.settings = new SettingsApi(transport);
     this.preferences = new PreferencesApi(transport);
   }

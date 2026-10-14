@@ -28,7 +28,7 @@ const KIND_FILTERS: Record<KindChoice, FileKindDto[]> = {
 };
 
 onMounted(async () => {
-  if (!ai.saved) void ai.load();
+  if (!ai.saved) void ai.loadSaved();
   if (!scan.defaults) await scan.init();
 });
 
@@ -119,7 +119,11 @@ function goUp(): void {
           <button class="link" @click="catalog.openFolder(null)">{{ $t("files.root") }}</button>
           <span class="mono">/ {{ breadcrumb }}</span>
         </nav>
-        <div v-if="catalog.selected.length > 0" class="row selection" data-test="selection-bar">
+        <div
+          v-if="ai.aiEnabled && catalog.selected.length > 0"
+          class="row selection"
+          data-test="selection-bar"
+        >
           <strong>{{ $t("files.selection", { count: catalog.selected.length }) }}</strong>
           <button
             class="primary"
@@ -166,6 +170,7 @@ function goUp(): void {
           :analyses="analysis.byFileId"
           :analyzing="analysis.analyzing"
           :selected="catalog.selected"
+          :selectable="ai.aiEnabled"
           @toggle="catalog.toggleSelected"
           @toggle-all="catalog.setSelected"
           @open-folder="catalog.openFolder"

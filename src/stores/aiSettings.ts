@@ -96,6 +96,15 @@ export const useAiSettingsStore = defineStore("aiSettings", () => {
     }
   }
 
+  /** Loads only the saved settings (no model list): enough to know whether AI is enabled. */
+  async function loadSaved(): Promise<void> {
+    try {
+      fill(await useApi().settings.ai());
+    } catch (e) {
+      error.value = IpcError.from(e).message;
+    }
+  }
+
   /** Loads the models the (typed or stored) key can use and picks a sensible default. */
   async function fetchModels(): Promise<void> {
     const provider = form.value.provider;
@@ -206,6 +215,7 @@ export const useAiSettingsStore = defineStore("aiSettings", () => {
     providerInfo,
     aiEnabled,
     load,
+    loadSaved,
     fetchModels,
     selectProvider,
     setBaseUrl,

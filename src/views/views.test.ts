@@ -2,7 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
 import { provideApi } from "@/services/ipc";
 import { FakeTransport } from "@/test/fakeTransport";
-import { aiSettings, analysis, fileEntry, page, scanSummary } from "@/test/factories";
+import {
+  aiSettings,
+  aiSettingsWithClaude,
+  analysis,
+  fileEntry,
+  page,
+  scanSummary,
+} from "@/test/factories";
 import { mountWithPlugins } from "@/test/mount";
 import App from "@/App.vue";
 import FilesView from "./FilesView.vue";
@@ -13,7 +20,7 @@ vi.mock("@/services/dialog", () => ({
   pickFolders: vi.fn(async () => ["/Volumes/USB"]),
 }));
 
-function backend(latest: ScanSummaryDto | null = scanSummary({ id: 3 })) {
+function backend(latest: ScanSummaryDto | null = scanSummary({ id: 3 }), withAi = false) {
   const transport = new FakeTransport()
     .on("get_scan_defaults", () => ({
       roots: ["/Users/alice"],
@@ -34,7 +41,7 @@ function backend(latest: ScanSummaryDto | null = scanSummary({ id: 3 })) {
     .on("analyze_files", (args) =>
       (args.fileIds as number[]).map((fileId) => analysis({ fileId, level: "Safe" })),
     )
-    .on("get_ai_settings", () => aiSettings())
+    .on("get_ai_settings", () => (withAi ? aiSettingsWithClaude() : aiSettings()))
     .on("list_ai_models", () => []);
   provideApi(transport);
   return transport;
@@ -158,8 +165,17 @@ describe("FilesView analysis", () => {
 });
 
 describe("FilesView batch analysis", () => {
+  it("hides the selection without an AI provider", async () => {
+    backend();
+    const { wrapper } = await mountWithPlugins(FilesView, {}, { path: "/files" });
+    await flushPromises();
+    expect(wrapper.find('[data-test="select-page"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="select"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="analyze"]').exists()).toBe(true);
+  });
+
   it("analyses the selected items in one request and clears the selection", async () => {
-    const transport = backend();
+    const transport = backend(scanSummary({ id: 3 }), true);
     const { wrapper } = await mountWithPlugins(FilesView, {}, { path: "/files" });
     await flushPromises();
     expect(wrapper.find('[data-test="selection-bar"]').exists()).toBe(false);
@@ -179,7 +195,7 @@ describe("FilesView batch analysis", () => {
 });
 
 describe("App shell", () => {
-  it("renders navigation", async () => {
+  it("renders navigation without the AI diagnosis when no AI is configured", async () => {
     backend();
     const { wrapper } = await mountWithPlugins(App);
     await flushPromises();
@@ -188,5 +204,12 @@ describe("App shell", () => {
       "📊 Maiores itens",
       "⚙️ Configurações",
     ]);
+  });
+
+  it("shows the AI diagnosis tab when an AI provider is configured", async () => {
+    backend(scanSummary({ id: 3 }), true);
+    const { wrapper } = await mountWithPlugins(App);
+    await flushPromises();
+    expect(wrapper.findAll(".nav-link").map((l) => l.text())).toContain("✨ Diagnóstico IA");
   });
 });

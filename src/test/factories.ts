@@ -1,6 +1,7 @@
 import type { AiProviderInfoDto } from "@/types/generated/AiProviderInfoDto";
 import type { AiSettingsDto } from "@/types/generated/AiSettingsDto";
 import type { AnalysisDto } from "@/types/generated/AnalysisDto";
+import type { DiagnosisItemDto } from "@/types/generated/DiagnosisItemDto";
 import type { FileEntryDto } from "@/types/generated/FileEntryDto";
 import type { PageDto } from "@/types/generated/PageDto";
 import type { ScanSummaryDto } from "@/types/generated/ScanSummaryDto";
@@ -87,4 +88,23 @@ export function aiSettings(overrides: Partial<AiSettingsDto> = {}): AiSettingsDt
     ],
     ...overrides,
   };
+}
+
+/** Settings with Claude selected and its key saved: AI features are enabled. */
+export function aiSettingsWithClaude(): AiSettingsDto {
+  const settings = aiSettings({ provider: "anthropic", model: "claude-opus-5-5" });
+  return {
+    ...settings,
+    providers: settings.providers.map((p) =>
+      p.id === "anthropic" ? { ...p, hasApiKey: true } : p,
+    ),
+  };
+}
+
+export function diagnosisItem(
+  file: Partial<FileEntryDto>,
+  result: Partial<AnalysisDto> | null = {},
+): DiagnosisItemDto {
+  const entry = fileEntry(file);
+  return { file: entry, analysis: result ? analysis({ fileId: entry.id, ...result }) : null };
 }
