@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Rust / Tauri
+target/
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Node / Vue
+node_modules/
+dist/
+coverage/
+*.log
+
+# Local data
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+
+# Claude Code local settings (may contain personal data)
+.claude/settings.local.json
