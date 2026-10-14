@@ -21,8 +21,18 @@ const props = withDefaults(
     analyzing?: number[];
     /** Selected ids; protected items cannot be selected. */
     selected?: number[];
+    /** Show the selection column (only useful when batch AI analysis is available). */
+    selectable?: boolean;
+    /** Show each item's analysis summary under its location. */
+    showSummary?: boolean;
   }>(),
-  { analyses: () => ({}), analyzing: () => [], selected: () => [] },
+  {
+    analyses: () => ({}),
+    analyzing: () => [],
+    selected: () => [],
+    selectable: true,
+    showSummary: false,
+  },
 );
 defineEmits<{
   openFolder: [path: string];
@@ -32,12 +42,12 @@ defineEmits<{
   toggleAll: [ids: number[], value: boolean];
 }>();
 
-const selectable = computed(() => props.items.filter((i) => !i.isProtected).map((i) => i.id));
+const selectableIds = computed(() => props.items.filter((i) => !i.isProtected).map((i) => i.id));
 const selectedOnPage = computed(
-  () => selectable.value.filter((id) => props.selected.includes(id)).length,
+  () => selectableIds.value.filter((id) => props.selected.includes(id)).length,
 );
 const allSelected = computed(
-  () => selectable.value.length > 0 && selectedOnPage.value === selectable.value.length,
+  () => selectableIds.value.length > 0 && selectedOnPage.value === selectableIds.value.length,
 );
 const someSelected = computed(() => selectedOnPage.value > 0 && !allSelected.value);
 
@@ -52,7 +62,7 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
   <table class="file-table">
     <!-- Fixed widths for data columns; the name column takes all remaining space. -->
     <colgroup>
-      <col class="col-check" />
+      <col v-if="selectable" class="col-check" />
       <col />
       <col class="col-size" />
       <col class="col-num" />
@@ -61,15 +71,15 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
     </colgroup>
     <thead>
       <tr>
-        <th class="check">
+        <th v-if="selectable" class="check">
           <input
             type="checkbox"
             data-test="select-page"
             :aria-label="$t('files.selectPage')"
             :checked="allSelected"
             :indeterminate="someSelected"
-            :disabled="selectable.length === 0"
-            @change="$emit('toggleAll', selectable, !allSelected)"
+            :disabled="selectableIds.length === 0"
+            @change="$emit('toggleAll', selectableIds, !allSelected)"
           />
         </th>
         <th>{{ $t("files.name") }}</th>
@@ -86,7 +96,7 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
         :data-test="`row-${item.id}`"
         :class="{ selected: selected.includes(item.id) }"
       >
-        <td class="check">
+        <td v-if="selectable" class="check">
           <input
             type="checkbox"
             data-test="select"
@@ -112,6 +122,14 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
               </span>
               <span class="muted mono path" :title="item.path">
                 {{ shortenPath(parentPath(item.path), home) }}
+              </span>
+              <span
+                v-if="showSummary && analyses[item.id]"
+                class="summary"
+                data-test="summary"
+                :title="analyses[item.id]!.summary"
+              >
+                {{ analyses[item.id]!.summary }}
               </span>
             </div>
           </div>
@@ -230,7 +248,8 @@ tbody tr:hover {
 }
 
 .title,
-.path {
+.path,
+.summary {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -254,6 +273,10 @@ tbody tr:hover {
 
 .badge {
   font-size: 0.8rem;
+}
+
+.summary {
+  font-size: 0.85rem;
 }
 
 .row-risk {

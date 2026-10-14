@@ -5,6 +5,7 @@ export default {
   nav: {
     scan: "Scan",
     files: "Largest items",
+    diagnosis: "AI diagnosis",
     settings: "Settings",
   },
   common: {
@@ -102,6 +103,20 @@ export default {
       Directory: "Folder",
       Package: "Package",
     },
+  },
+  diagnosis: {
+    title: "AI diagnosis",
+    subtitle:
+      "The largest items of the last scan, as assessed by the AI. Folders that only wrap one large item are skipped.",
+    run: "Analyse with AI",
+    again: "Analyse again",
+    running: "Analysing the {count} largest items with {model}… this can take a minute.",
+    runningShort: "AI diagnosis in progress…",
+    view: "View AI diagnosis",
+    pending: "{count} item(s) not assessed by the AI yet.",
+    items: "{count} item(s)",
+    needsAi: "The AI diagnosis needs an AI provider. Configure one in Settings.",
+    goToSettings: "Go to Settings",
   },
   risk: {
     Safe: "Safe",

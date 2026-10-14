@@ -7,6 +7,7 @@ const ptBR: MessageSchema = {
   nav: {
     scan: "Varredura",
     files: "Maiores itens",
+    diagnosis: "Diagnóstico IA",
     settings: "Configurações",
   },
   common: {
@@ -105,6 +106,20 @@ const ptBR: MessageSchema = {
       Directory: "Pasta",
       Package: "Pacote",
     },
+  },
+  diagnosis: {
+    title: "Diagnóstico IA",
+    subtitle:
+      "Os maiores itens da última varredura, avaliados pela IA. Pastas que só envolvem um item grande são puladas.",
+    run: "Analisar com IA",
+    again: "Analisar de novo",
+    running: "Analisando os {count} maiores itens com {model}… pode levar um minuto.",
+    runningShort: "Diagnóstico IA em andamento…",
+    view: "Ver diagnóstico IA",
+    pending: "{count} item(ns) ainda não avaliado(s) pela IA.",
+    items: "{count} item(ns)",
+    needsAi: "O diagnóstico IA precisa de um provedor de IA. Configure um em Configurações.",
+    goToSettings: "Ir para Configurações",
   },
   risk: {
     Safe: "Seguro",

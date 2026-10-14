@@ -5,6 +5,7 @@ export {
   AnalysisApi,
   Api,
   CatalogApi,
+  DiagnosisApi,
   PreferencesApi,
   ScanApi,
   SettingsApi,

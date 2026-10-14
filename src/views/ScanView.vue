@@ -5,9 +5,13 @@ import PermissionBanner from "@/components/PermissionBanner.vue";
 import ScanProgress from "@/components/ScanProgress.vue";
 import { formatBytes, formatDateTime, shortenPath } from "@/composables/format";
 import { pickFolders } from "@/services/dialog";
+import { useAiSettingsStore } from "@/stores/aiSettings";
+import { useDiagnosisStore } from "@/stores/diagnosis";
 import { useScanStore } from "@/stores/scan";
 
 const scan = useScanStore();
+const ai = useAiSettingsStore();
+const diagnosis = useDiagnosisStore();
 const router = useRouter();
 
 const SIZE_OPTIONS = [10, 50, 100, 250, 500, 1000].map((mb) => mb * 1_000_000);
@@ -17,6 +21,7 @@ const showProgress = computed(() => scan.isRunning || scan.progress !== null);
 const canStart = computed(() => !scan.isRunning && scan.roots.length > 0);
 
 onMounted(() => {
+  if (!ai.saved) void ai.loadSaved();
   if (!scan.defaults) void scan.init();
 });
 
@@ -100,6 +105,21 @@ async function addFolders(): Promise<void> {
           <p v-if="scan.current.incomplete" class="error">{{ $t("scan.incomplete") }}</p>
         </div>
         <span class="spacer" />
+        <span
+          v-if="diagnosis.runningFor !== null && diagnosis.runningFor === scan.current.id"
+          class="muted"
+          role="status"
+          data-test="diagnosis-running"
+        >
+          {{ $t("diagnosis.runningShort") }}
+        </span>
+        <button
+          v-if="scan.hasCatalog && ai.aiEnabled"
+          data-test="view-diagnosis"
+          @click="router.push({ name: 'diagnosis' })"
+        >
+          {{ $t("diagnosis.view") }}
+        </button>
         <button
           v-if="scan.hasCatalog"
           class="primary"

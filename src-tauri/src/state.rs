@@ -9,6 +9,7 @@ use cleaner_core::policy::protected_paths::ProtectedPathPolicy;
 use cleaner_core::services::ai_settings_service::AiSettingsService;
 use cleaner_core::services::analysis_service::AnalysisService;
 use cleaner_core::services::catalog_service::CatalogService;
+use cleaner_core::services::diagnosis_service::DiagnosisService;
 use cleaner_core::services::preferences_service::PreferencesService;
 use cleaner_core::services::scan_service::{ScanConfig, ScanService};
 use cleaner_infra::SystemClock;
@@ -31,6 +32,7 @@ pub struct AppState {
     pub scan: ScanService,
     pub catalog: CatalogService,
     pub analysis: AnalysisService,
+    pub diagnosis: DiagnosisService,
     pub ai_settings: AiSettingsService,
     pub preferences: PreferencesService,
     pub home: PathBuf,
@@ -81,6 +83,7 @@ impl AppState {
             Arc::new(SystemClock),
             &home,
         );
+        let diagnosis = DiagnosisService::new(files.clone(), analysis.clone(), ai_settings.clone());
         let recovered = scan.recover_interrupted()?;
         if recovered > 0 {
             tracing::info!(recovered, "marked interrupted scans as failed");
@@ -89,6 +92,7 @@ impl AppState {
             scan,
             catalog: CatalogService::new(scans, files),
             analysis,
+            diagnosis,
             ai_settings,
             preferences,
             home,

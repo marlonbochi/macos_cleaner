@@ -1,9 +1,30 @@
 <script setup lang="ts">
-const NAV = [
+import { computed, onMounted } from "vue";
+import { useAutoDiagnosis } from "@/composables/autoDiagnosis";
+import { useAiSettingsStore } from "@/stores/aiSettings";
+
+interface NavItem {
+  name: string;
+  label: string;
+  icon: string;
+  /** Only shown when an AI provider is configured. */
+  needsAi?: boolean;
+}
+
+const NAV: NavItem[] = [
   { name: "scan", label: "nav.scan", icon: "🔍" },
   { name: "files", label: "nav.files", icon: "📊" },
+  { name: "diagnosis", label: "nav.diagnosis", icon: "✨", needsAi: true },
   { name: "settings", label: "nav.settings", icon: "⚙️" },
-] as const;
+];
+
+const ai = useAiSettingsStore();
+const nav = computed(() => NAV.filter((item) => !item.needsAi || ai.aiEnabled));
+
+useAutoDiagnosis();
+onMounted(() => {
+  if (!ai.saved) void ai.loadSaved();
+});
 </script>
 
 <template>
@@ -11,7 +32,7 @@ const NAV = [
     <aside class="sidebar">
       <div class="brand">{{ $t("app.name") }}</div>
       <nav>
-        <RouterLink v-for="item in NAV" :key="item.name" :to="{ name: item.name }" class="nav-link">
+        <RouterLink v-for="item in nav" :key="item.name" :to="{ name: item.name }" class="nav-link">
           <span aria-hidden="true">{{ item.icon }}</span>
           {{ $t(item.label) }}
         </RouterLink>

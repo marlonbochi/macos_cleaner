@@ -50,6 +50,8 @@ pub fn run() {
             commands::analysis::save_ai_settings,
             commands::analysis::test_ai_connection,
             commands::analysis::list_ai_models,
+            commands::diagnosis::get_ai_diagnosis,
+            commands::diagnosis::run_ai_diagnosis,
             commands::preferences::get_preferences,
             commands::preferences::set_locale,
         ])

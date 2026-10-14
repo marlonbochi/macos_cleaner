@@ -103,6 +103,17 @@ type AiModelDto = { id: string; label: string };
 type ConnectionTestDto = { provider: string; model: string };
 ```
 
+## AI diagnosis (feature 008) — implemented
+
+| Command | Args | Returns | Notes |
+|---|---|---|---|
+| `get_ai_diagnosis` | `{ scanId }` | `DiagnosisItemDto[]` | the 40 largest meaningful items with stored analyses; never calls the AI |
+| `run_ai_diagnosis` | `{ scanId; force: boolean }` | `DiagnosisItemDto[]` | batches of 20; cache unless `force`; fails with `NotConfigured` without a provider |
+
+```ts
+type DiagnosisItemDto = { file: FileEntryDto; analysis: AnalysisDto | null };
+```
+
 ## Deletion (US3) — planned
 
 | Command | Args | Returns | Notes |
