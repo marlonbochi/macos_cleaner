@@ -2,6 +2,7 @@
 const NAV = [
   { name: "scan", label: "nav.scan", icon: "🔍" },
   { name: "files", label: "nav.files", icon: "📊" },
+  { name: "settings", label: "nav.settings", icon: "⚙️" },
 ] as const;
 </script>
 

@@ -1,3 +1,6 @@
+import type { AiSettingsDto } from "@/types/generated/AiSettingsDto";
+import type { AnalysisDto } from "@/types/generated/AnalysisDto";
+import type { ConnectionTestDto } from "@/types/generated/ConnectionTestDto";
 import type { FileEntryDto } from "@/types/generated/FileEntryDto";
 import type { FileFilterDto } from "@/types/generated/FileFilterDto";
 import type { FileSortDto } from "@/types/generated/FileSortDto";
@@ -5,6 +8,7 @@ import type { PageDto } from "@/types/generated/PageDto";
 import type { PermissionsStatusDto } from "@/types/generated/PermissionsStatusDto";
 import type { ScanDefaultsDto } from "@/types/generated/ScanDefaultsDto";
 import type { ScanEvent } from "@/types/generated/ScanEvent";
+import type { SaveAiSettingsInput } from "@/types/generated/SaveAiSettingsInput";
 import type { ScanSummaryDto } from "@/types/generated/ScanSummaryDto";
 import type { Transport } from "./transport";
 
@@ -90,15 +94,49 @@ export class SystemApi {
   }
 }
 
+/** AI-assisted risk analysis of catalogued items (US2). */
+export class AnalysisApi {
+  constructor(private readonly transport: Transport) {}
+
+  analyze(fileId: number, force = false): Promise<AnalysisDto> {
+    return this.transport.invoke("analyze_file", { fileId, force });
+  }
+
+  /** Stored analyses still valid for these items (used for risk badges). */
+  list(fileIds: number[]): Promise<AnalysisDto[]> {
+    return this.transport.invoke("get_analyses", { fileIds });
+  }
+}
+
+export class SettingsApi {
+  constructor(private readonly transport: Transport) {}
+
+  ai(): Promise<AiSettingsDto> {
+    return this.transport.invoke("get_ai_settings");
+  }
+
+  saveAi(input: SaveAiSettingsInput): Promise<AiSettingsDto> {
+    return this.transport.invoke("save_ai_settings", { input });
+  }
+
+  testAi(): Promise<ConnectionTestDto> {
+    return this.transport.invoke("test_ai_connection");
+  }
+}
+
 /** Facade grouping every backend API. */
 export class Api {
   readonly scan: ScanApi;
   readonly catalog: CatalogApi;
   readonly system: SystemApi;
+  readonly analysis: AnalysisApi;
+  readonly settings: SettingsApi;
 
   constructor(transport: Transport) {
     this.scan = new ScanApi(transport);
     this.catalog = new CatalogApi(transport);
     this.system = new SystemApi(transport);
+    this.analysis = new AnalysisApi(transport);
+    this.settings = new SettingsApi(transport);
   }
 }

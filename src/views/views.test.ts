@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
 import { provideApi } from "@/services/ipc";
 import { FakeTransport } from "@/test/fakeTransport";
-import { fileEntry, page, scanSummary } from "@/test/factories";
+import { aiSettings, analysis, fileEntry, page, scanSummary } from "@/test/factories";
 import { mountWithPlugins } from "@/test/mount";
 import App from "@/App.vue";
 import FilesView from "./FilesView.vue";
@@ -28,7 +28,10 @@ function backend(latest: ScanSummaryDto | null = scanSummary({ id: 3 })) {
         fileEntry({ id: 2 }),
       ]),
     )
-    .on("list_folder_children", () => page([fileEntry({ id: 5, name: "inner.mov" })]));
+    .on("list_folder_children", () => page([fileEntry({ id: 5, name: "inner.mov" })]))
+    .on("get_analyses", () => [analysis({ fileId: 2, level: "Safe" })])
+    .on("analyze_file", (args) => analysis({ fileId: args.fileId as number }))
+    .on("get_ai_settings", () => aiSettings());
   provideApi(transport);
   return transport;
 }
@@ -126,6 +129,30 @@ describe("FilesView", () => {
   });
 });
 
+describe("FilesView analysis", () => {
+  it("shows stored risk badges and opens the analysis panel", async () => {
+    const transport = backend();
+    const { wrapper } = await mountWithPlugins(FilesView, {}, { path: "/files" });
+    await flushPromises();
+
+    expect(transport.lastCall("get_analyses")).toEqual({ fileIds: [1, 2] });
+    expect(wrapper.find('[data-test="row-2"] [data-level="Safe"]').exists()).toBe(true);
+
+    await wrapper.find('[data-test="row-1"] [data-test="analyze"]').trigger("click");
+    await flushPromises();
+    expect(transport.lastCall("analyze_file")).toEqual({ fileId: 1, force: false });
+    expect(wrapper.find('[role="dialog"]').text()).toContain("Simuladores do Xcode");
+    expect(wrapper.find('[data-test="row-1"] [data-level="Caution"]').exists()).toBe(true);
+
+    await wrapper.find('[data-test="reanalyze"]').trigger("click");
+    await flushPromises();
+    expect(transport.lastCall("analyze_file")).toEqual({ fileId: 1, force: true });
+
+    await wrapper.find('[data-test="close"]').trigger("click");
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  });
+});
+
 describe("App shell", () => {
   it("renders navigation", async () => {
     backend();
@@ -134,6 +161,7 @@ describe("App shell", () => {
     expect(wrapper.findAll(".nav-link").map((l) => l.text())).toEqual([
       "🔍 Varredura",
       "📊 Maiores itens",
+      "⚙️ Configurações",
     ]);
   });
 });

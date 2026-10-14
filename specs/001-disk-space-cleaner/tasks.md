@@ -96,6 +96,8 @@ vêm antes da implementação e devem falhar antes de serem satisfeitas.
 
 ## Phase 4: User Story 2 - Avaliação de risco assistida por IA (P2)
 
+> Implementada na branch `002-ai-risk-analysis` — ver [specs/002-ai-risk-analysis](../002-ai-risk-analysis/tasks.md). Pendente: T035 (benchmark) e análise em lote (`assess_top`).
+
 **Goal**: nível de risco + explicação para cada item, com IA em nuvem/local ou regras locais.
 
 **Independent Test**: catálogo de exemplo avaliado; itens de sistema nunca "Seguro"; cache reaproveitado.
@@ -103,20 +105,20 @@ vêm antes da implementação e devem falhar antes de serem satisfeitas.
 ### Tests for User Story 2 ⚠️
 
 - [ ] T035 [P] [US2] Benchmark rotulado `fixtures/risk-benchmark.json` (200 itens) + teste `crates/cleaner-core/tests/risk_benchmark.rs`
-- [ ] T036 [P] [US2] Testes da `ClassifierChain` (precedência protegido > cache > IA > heurística; fallback em erro/JSON inválido) em `crates/cleaner-core/src/classify/chain.rs`
-- [ ] T037 [P] [US2] Testes de contrato dos provedores Anthropic/OpenAI/Ollama com `wiremock` (payload só metadados, `~` no home, retries, schema) em `crates/cleaner-infra/tests/ai_providers.rs`
-- [ ] T038 [P] [US2] Teste do repositório de avaliações (cache por fingerprint + versão) em `crates/cleaner-infra/tests/sqlite_assessments.rs`
-- [ ] T039 [P] [US2] Testes de `RiskBadge`, store `assessment` e `SettingsView` em `src/**/__tests__/`
+- [X] T036 [P] [US2] Testes da `ClassifierChain` (precedência protegido > cache > IA > heurística; fallback em erro/JSON inválido) em `crates/cleaner-core/src/classify/chain.rs`
+- [X] T037 [P] [US2] Testes de contrato dos provedores Anthropic/OpenAI/Ollama com `wiremock` (payload só metadados, `~` no home, retries, schema) em `crates/cleaner-infra/tests/ai_providers.rs`
+- [X] T038 [P] [US2] Teste do repositório de avaliações (cache por fingerprint + versão) em `crates/cleaner-infra/tests/sqlite_assessments.rs`
+- [X] T039 [P] [US2] Testes de `RiskBadge`, store `assessment` e `SettingsView` em `src/**/__tests__/`
 
 ### Implementation for User Story 2
 
-- [ ] T040 [P] [US2] `HeuristicClassifier` (regras por caminho/extensão/categoria) em `crates/cleaner-core/src/policy/heuristics.rs` e `classify/heuristic.rs`
-- [ ] T041 [P] [US2] `ProtectedPathClassifier`, `CachedClassifier`, `AiClassifier`, `ClassifierChain` em `crates/cleaner-core/src/classify/`
-- [ ] T042 [US2] `AssessmentService` em `crates/cleaner-core/src/services/assessment_service.rs`
-- [ ] T043 [P] [US2] Adapters de IA + `AiProviderFactory` + prompt versionado + schema em `crates/cleaner-infra/src/ai/`
-- [ ] T044 [P] [US2] `KeychainSecretStore` em `crates/cleaner-infra/src/macos/keychain.rs` e `SqliteSettingsRepository`/`SqliteAssessmentRepository`
-- [ ] T045 [US2] Comandos `assess_files`, `assess_top`, `get_ai_settings`, `save_ai_settings`, `test_ai_connection` em `src-tauri/src/commands/assessment.rs` e `settings.rs`
-- [ ] T046 [US2] UI: `RiskBadge` com explicação/origem, filtro por risco, botão "Avaliar maiores", `SettingsView` (provedor, modelo, chave, compartilhar conteúdo)
+- [X] T040 [P] [US2] `HeuristicClassifier` (regras por caminho/extensão/categoria) em `crates/cleaner-core/src/policy/heuristics.rs` e `classify/heuristic.rs`
+- [X] T041 [P] [US2] `ProtectedPathClassifier`, `CachedClassifier`, `AiClassifier`, `ClassifierChain` em `crates/cleaner-core/src/classify/`
+- [X] T042 [US2] `AssessmentService` em `crates/cleaner-core/src/services/assessment_service.rs`
+- [X] T043 [P] [US2] Adapters de IA + `AiProviderFactory` + prompt versionado + schema em `crates/cleaner-infra/src/ai/`
+- [X] T044 [P] [US2] `KeychainSecretStore` em `crates/cleaner-infra/src/macos/keychain.rs` e `SqliteSettingsRepository`/`SqliteAssessmentRepository`
+- [X] T045 [US2] Comandos `assess_files`, `assess_top`, `get_ai_settings`, `save_ai_settings`, `test_ai_connection` em `src-tauri/src/commands/assessment.rs` e `settings.rs`
+- [X] T046 [US2] UI: `RiskBadge` com explicação/origem, filtro por risco, botão "Avaliar maiores", `SettingsView` (provedor, modelo, chave, compartilhar conteúdo)
 
 **Checkpoint**: US1 + US2 independentes e funcionais.
 

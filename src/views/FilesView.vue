@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import AnalysisPanel from "@/components/AnalysisPanel.vue";
 import FileTable from "@/components/FileTable.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import { formatBytes, formatDateTime, parentPath, shortenPath } from "@/composables/format";
+import { useAiSettingsStore } from "@/stores/aiSettings";
+import { useAnalysisStore } from "@/stores/analysis";
 import { useCatalogStore } from "@/stores/catalog";
 import { useScanStore } from "@/stores/scan";
 import type { FileKindDto } from "@/types/generated/FileKindDto";
 
 const scan = useScanStore();
 const catalog = useCatalogStore();
+const analysis = useAnalysisStore();
+const ai = useAiSettingsStore();
 
 const home = computed(() => scan.defaults?.home ?? null);
 const finishedScan = computed(() => (scan.hasCatalog ? scan.current : null));
@@ -23,8 +28,15 @@ const KIND_FILTERS: Record<KindChoice, FileKindDto[]> = {
 };
 
 onMounted(async () => {
+  if (!ai.saved) void ai.load();
   if (!scan.defaults) await scan.init();
 });
+
+// Show risk badges for rows that were analysed before.
+watch(
+  () => catalog.items,
+  (items) => void analysis.loadFor(items.map((i) => i.id)),
+);
 
 watch(
   () => finishedScan.value?.id,
@@ -111,8 +123,11 @@ function goUp(): void {
           :items="catalog.items"
           :max-size="catalog.maxSize"
           :home="home"
+          :analyses="analysis.byFileId"
+          :analyzing="analysis.analyzing"
           @open-folder="catalog.openFolder"
           @reveal="catalog.revealInFinder"
+          @analyze="analysis.open"
         />
         <PaginationBar
           :offset="catalog.offset"
@@ -125,6 +140,19 @@ function goUp(): void {
         />
       </section>
     </template>
+
+    <AnalysisPanel
+      v-if="analysis.selected"
+      :item="analysis.selected"
+      :analysis="analysis.current"
+      :analyzing="analysis.isAnalyzing(analysis.selected.id)"
+      :ai-enabled="ai.aiEnabled"
+      :home="home"
+      :error="analysis.error"
+      @close="analysis.close"
+      @reanalyze="analysis.analyze(analysis.selected, true)"
+      @reveal="catalog.revealInFinder"
+    />
   </div>
 </template>
 

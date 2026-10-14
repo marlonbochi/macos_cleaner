@@ -6,11 +6,26 @@ import {
   parentPath,
   shortenPath,
 } from "@/composables/format";
+import type { AnalysisDto } from "@/types/generated/AnalysisDto";
 import type { FileEntryDto } from "@/types/generated/FileEntryDto";
+import RiskBadge from "./RiskBadge.vue";
 import SizeBar from "./SizeBar.vue";
 
-defineProps<{ items: FileEntryDto[]; maxSize: number; home: string | null }>();
-defineEmits<{ openFolder: [path: string]; reveal: [path: string] }>();
+withDefaults(
+  defineProps<{
+    items: FileEntryDto[];
+    maxSize: number;
+    home: string | null;
+    analyses?: Record<number, AnalysisDto>;
+    analyzing?: number[];
+  }>(),
+  { analyses: () => ({}), analyzing: () => [] },
+);
+defineEmits<{
+  openFolder: [path: string];
+  reveal: [path: string];
+  analyze: [item: FileEntryDto];
+}>();
 
 const ICONS: Record<FileEntryDto["kind"], string> = {
   File: "📄",
@@ -47,6 +62,12 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
               <span class="title" :title="item.name">
                 {{ item.name }}
                 <span v-if="item.isProtected" class="badge" :title="$t('files.protected')">🔒</span>
+                <RiskBadge
+                  v-if="analyses[item.id]"
+                  :level="analyses[item.id]!.level"
+                  :title="analyses[item.id]!.summary"
+                  class="row-risk"
+                />
               </span>
               <span class="muted mono path" :title="item.path">
                 {{ shortenPath(parentPath(item.path), home) }}
@@ -61,6 +82,15 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
         <td class="num">{{ item.kind === "File" ? "" : formatCount(item.fileCount) }}</td>
         <td>{{ formatDate(item.modifiedAt) }}</td>
         <td class="actions">
+          <button
+            class="link"
+            data-test="analyze"
+            :disabled="analyzing.includes(item.id)"
+            :title="$t('files.analyzeTitle')"
+            @click="$emit('analyze', item)"
+          >
+            {{ analyzing.includes(item.id) ? "…" : $t("files.analyze") }}
+          </button>
           <button
             v-if="item.kind === 'Directory'"
             class="link"
@@ -104,7 +134,7 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
 }
 
 .col-actions {
-  width: 105px;
+  width: 170px;
 }
 
 th {
@@ -169,5 +199,9 @@ tbody tr:hover {
 
 .badge {
   font-size: 0.8rem;
+}
+
+.row-risk {
+  margin-left: 0.35rem;
 }
 </style>

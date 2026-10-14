@@ -1,7 +1,7 @@
 import { Api } from "./api";
 import { TauriTransport, type Transport } from "./transport";
 
-export { Api, CatalogApi, ScanApi, SystemApi } from "./api";
+export { AnalysisApi, Api, CatalogApi, ScanApi, SettingsApi, SystemApi } from "./api";
 export type { ListFilesParams } from "./api";
 export { IpcError, TauriTransport } from "./transport";
 export type { Transport } from "./transport";
