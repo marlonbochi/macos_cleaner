@@ -44,6 +44,7 @@ pub fn run() {
             commands::system::get_permissions_status,
             commands::system::open_full_disk_access_settings,
             commands::analysis::analyze_file,
+            commands::analysis::analyze_files,
             commands::analysis::get_analyses,
             commands::analysis::get_ai_settings,
             commands::analysis::save_ai_settings,

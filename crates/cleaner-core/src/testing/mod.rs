@@ -264,31 +264,57 @@ use crate::ports::ai::{
 };
 use crate::ports::repository::{AssessmentRepository, SettingsRepository};
 
-/// Factory whose providers return a canned reply (or error) and record every user message.
-#[derive(Debug, Clone)]
+type Responder = dyn Fn(&StructuredRequest<'_>) -> Result<serde_json::Value, AiError> + Send + Sync;
+
+/// Factory whose providers return a canned (or computed) reply and record every request.
+#[derive(Clone)]
 pub struct FakeAiFactory {
-    reply: Result<serde_json::Value, AiError>,
-    requests: Arc<Mutex<Vec<String>>>,
+    responder: Arc<Responder>,
+    requests: Arc<Mutex<Vec<(String, String)>>>,
+}
+
+impl std::fmt::Debug for FakeAiFactory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FakeAiFactory").finish_non_exhaustive()
+    }
 }
 
 impl FakeAiFactory {
     pub fn replying(reply: serde_json::Value) -> Self {
-        Self {
-            reply: Ok(reply),
-            requests: Arc::default(),
-        }
+        Self::responding(move |_| Ok(reply.clone()))
     }
 
     pub fn failing(error: AiError) -> Self {
+        Self::responding(move |_| Err(error.clone()))
+    }
+
+    pub fn responding(
+        f: impl Fn(&StructuredRequest<'_>) -> Result<serde_json::Value, AiError> + Send + Sync + 'static,
+    ) -> Self {
         Self {
-            reply: Err(error),
+            responder: Arc::new(f),
             requests: Arc::default(),
         }
     }
 
     /// User messages sent so far, in order.
     pub fn requests(&self) -> Vec<String> {
-        self.requests.lock().unwrap().clone()
+        self.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(_, user)| user.clone())
+            .collect()
+    }
+
+    /// Schema names of the requests sent so far, in order.
+    pub fn schema_names(&self) -> Vec<String> {
+        self.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect()
     }
 }
 
@@ -304,8 +330,11 @@ impl AiProviderFactory for FakeAiFactory {
 
 impl AiProvider for FakeAiFactory {
     fn complete_json(&self, request: &StructuredRequest<'_>) -> Result<serde_json::Value, AiError> {
-        self.requests.lock().unwrap().push(request.user.to_owned());
-        self.reply.clone()
+        self.requests
+            .lock()
+            .unwrap()
+            .push((request.schema_name.to_owned(), request.user.to_owned()));
+        (self.responder)(request)
     }
 
     fn descriptor(&self) -> (String, String) {

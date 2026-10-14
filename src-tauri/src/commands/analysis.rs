@@ -26,6 +26,30 @@ pub async fn analyze_file(
         .map_err(Into::into)
 }
 
+/// Upper bound per call; the service still splits it into AI batches of `MAX_BATCH`.
+const MAX_SELECTION: usize = 200;
+
+/// Analyses the selected items with as few AI requests as possible.
+#[tauri::command]
+pub async fn analyze_files(
+    state: State<'_, AppState>,
+    file_ids: Vec<i64>,
+    force: bool,
+) -> CommandResult<Vec<AnalysisDto>> {
+    if file_ids.len() > MAX_SELECTION {
+        return Err(AppError::invalid_input(format!(
+            "select at most {MAX_SELECTION} items per analysis"
+        )));
+    }
+    let ids: Vec<FileId> = file_ids.into_iter().map(FileId).collect();
+    let service = state.analysis.clone();
+    tauri::async_runtime::spawn_blocking(move || service.analyze_many(&ids, force))
+        .await
+        .map_err(|e| AppError::new(ErrorCode::Internal, e.to_string()))?
+        .map(|outcomes| outcomes.into_iter().map(AnalysisDto::from).collect())
+        .map_err(Into::into)
+}
+
 /// Stored analyses that still match the items' current state (risk badges in the table).
 #[tauri::command]
 pub fn get_analyses(

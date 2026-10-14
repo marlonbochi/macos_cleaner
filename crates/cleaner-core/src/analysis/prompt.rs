@@ -18,6 +18,11 @@ pub const PROMPT_VERSION: u32 = 1;
 pub const SCHEMA_NAME: &str = "file_analysis";
 /// How many children of a folder are described to the model.
 pub const MAX_CHILDREN: usize = 15;
+pub const BATCH_SCHEMA_NAME: &str = "file_analyses";
+/// Items per batch request: keeps the answer well inside the output budget.
+pub const MAX_BATCH: usize = 20;
+/// Fewer children per folder in batches, to keep the request small.
+pub const BATCH_MAX_CHILDREN: usize = 5;
 
 const SYSTEM_PROMPT: &str = "\
 Você é um especialista em macOS que ajuda uma pessoa a liberar espaço em disco com segurança.
@@ -100,9 +105,13 @@ pub fn response_schema() -> Value {
     })
 }
 
-/// Builds the user message describing `record` (and its largest children, for folders).
-pub fn user_message(record: &FileRecord, children: &[FileRecord], home: &Path) -> String {
-    let context = ItemContext {
+fn item_context(
+    record: &FileRecord,
+    children: &[FileRecord],
+    home: &Path,
+    max_children: usize,
+) -> ItemContext {
+    ItemContext {
         path: display_path(&record.path, home),
         kind: kind_label(record.kind),
         size_on_disk: record.size_on_disk.to_string(),
@@ -113,17 +122,87 @@ pub fn user_message(record: &FileRecord, children: &[FileRecord], home: &Path) -
         last_accessed: record.accessed_at.map(epoch_to_date),
         largest_children: children
             .iter()
-            .take(MAX_CHILDREN)
+            .take(max_children)
             .map(|c| ChildContext {
                 name: c.name(),
                 kind: kind_label(c.kind),
                 size_on_disk: c.size_on_disk.to_string(),
             })
             .collect(),
-    };
+    }
+}
+
+/// Builds the user message describing `record` (and its largest children, for folders).
+pub fn user_message(record: &FileRecord, children: &[FileRecord], home: &Path) -> String {
+    let context = item_context(record, children, home, MAX_CHILDREN);
     // Serialising a plain struct of strings and numbers cannot fail; fall back defensively.
     let json = serde_json::to_string_pretty(&context).unwrap_or_default();
     format!("Analise este item e responda no formato pedido.\n\n{json}")
+}
+
+/// One item of a batch request.
+#[derive(Debug, Clone, Copy)]
+pub struct BatchInput<'a> {
+    /// Opaque id echoed back by the model to match answers to items.
+    pub id: &'a str,
+    pub record: &'a FileRecord,
+    pub children: &'a [FileRecord],
+}
+
+#[derive(Debug, Serialize)]
+struct BatchItem<'a> {
+    id: &'a str,
+    #[serde(flatten)]
+    item: ItemContext,
+}
+
+/// One message describing many items. Compact JSON: in a batch every token counts.
+pub fn batch_user_message(items: &[BatchInput<'_>], home: &Path) -> String {
+    let items: Vec<BatchItem<'_>> = items
+        .iter()
+        .map(|i| BatchItem {
+            id: i.id,
+            item: item_context(i.record, i.children, home, BATCH_MAX_CHILDREN),
+        })
+        .collect();
+    let json = serde_json::to_string(&json!({ "items": items })).unwrap_or_default();
+    format!(
+        "Analise CADA item da lista. Responda com um objeto em `analyses` para cada item, \
+         repetindo exatamente o mesmo `id`. Não omita itens.\n\n{json}"
+    )
+}
+
+/// `{ "analyses": [ { "id": ..., <single-item fields> } ] }`
+pub fn batch_response_schema() -> Value {
+    let mut item = response_schema();
+    item["properties"]["id"] = json!({ "type": "string" });
+    if let Some(required) = item["required"].as_array_mut() {
+        required.insert(0, json!("id"));
+    }
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["analyses"],
+        "properties": { "analyses": { "type": "array", "items": item } }
+    })
+}
+
+/// Parses a batch answer into one result per id. A malformed item only affects that item;
+/// a malformed envelope fails the whole batch.
+pub fn parse_batch_response(
+    value: &Value,
+) -> Result<std::collections::HashMap<String, Result<Verdict, AiError>>, AiError> {
+    let analyses = value
+        .get("analyses")
+        .and_then(Value::as_array)
+        .ok_or_else(|| AiError::InvalidResponse("missing analyses array".into()))?;
+    Ok(analyses
+        .iter()
+        .filter_map(|a| {
+            let id = a.get("id").and_then(Value::as_str)?;
+            Some((id.to_owned(), parse_response(a)))
+        })
+        .collect())
 }
 
 /// Replaces the home directory with `~` so the user name is not sent.
@@ -352,6 +431,69 @@ mod tests {
         );
         assert_eq!(parse_json_text(" {\"a\":1} ").unwrap(), json!({"a": 1}));
         assert!(parse_json_text("nope").is_err());
+    }
+
+    #[test]
+    fn batch_message_is_compact_and_carries_ids() {
+        let home = Path::new("/Users/alice");
+        let a = record("/Users/alice/Movies/a.mov", FileKind::File, 1);
+        let dir = record("/Users/alice/Library/Caches", FileKind::Directory, 2);
+        let children: Vec<_> = (0..10)
+            .map(|i| {
+                record(
+                    &format!("/Users/alice/Library/Caches/c{i}"),
+                    FileKind::Directory,
+                    1,
+                )
+            })
+            .collect();
+
+        let message = batch_user_message(
+            &[
+                BatchInput {
+                    id: "1",
+                    record: &a,
+                    children: &[],
+                },
+                BatchInput {
+                    id: "7",
+                    record: &dir,
+                    children: &children,
+                },
+            ],
+            home,
+        );
+
+        assert!(message.contains(r#""id":"1""#));
+        assert!(message.contains(r#""path":"~/Movies/a.mov""#));
+        assert!(message.contains(r#""id":"7""#));
+        assert_eq!(message.matches(r#""name":"c"#).count(), BATCH_MAX_CHILDREN);
+        assert!(!message.contains("alice"));
+        assert!(!message.contains("\n  "), "no pretty-printing in batches");
+    }
+
+    #[test]
+    fn batch_schema_requires_ids() {
+        let schema = batch_response_schema();
+        let item = &schema["properties"]["analyses"]["items"];
+        assert_eq!(item["required"][0], json!("id"));
+        assert_eq!(item["properties"]["id"], json!({"type": "string"}));
+        assert_eq!(item["additionalProperties"], json!(false));
+    }
+
+    #[test]
+    fn batch_parsing_isolates_bad_items() {
+        let good = json!({
+            "id": "1", "level": "Safe", "category": "cache", "summary": "s", "explanation": "e",
+            "recommendation": "delete-safely", "steps": [], "commands": []
+        });
+        let bad = json!({ "id": "2", "level": "Nope" });
+        let no_id = json!({ "level": "Safe" });
+        let parsed = parse_batch_response(&json!({ "analyses": [good, bad, no_id] })).unwrap();
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed["1"].as_ref().unwrap().level, RiskLevel::Safe);
+        assert!(parsed["2"].is_err());
+        assert!(parse_batch_response(&json!({ "nope": [] })).is_err());
     }
 
     #[test]

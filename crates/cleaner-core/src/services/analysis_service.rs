@@ -1,4 +1,4 @@
-//! Use case: analyse one catalogued item and explain whether / how to delete it (US2).
+//! Use case: analyse catalogued items and explain whether / how to delete them (US2).
 //!
 //! Resolution chain (Chain of Responsibility):
 //! 1. protected path → always `Dangerous`, never sent anywhere;
@@ -14,14 +14,16 @@ use std::sync::Arc;
 
 use crate::analysis::heuristics::{HEURISTIC_VERSION, HeuristicAnalyzer};
 use crate::analysis::prompt::{
-    PROMPT_VERSION, SCHEMA_NAME, parse_response, response_schema, system_prompt, user_message,
+    BATCH_MAX_CHILDREN, BATCH_SCHEMA_NAME, BatchInput, MAX_BATCH, MAX_CHILDREN, PROMPT_VERSION,
+    SCHEMA_NAME, batch_response_schema, batch_user_message, parse_batch_response, parse_response,
+    response_schema, system_prompt, user_message,
 };
 use crate::analysis::verdict::{Verdict, protected_verdict};
-use crate::domain::file_entry::{FileEntry, FileId, FileKind};
+use crate::domain::file_entry::{FileEntry, FileId, FileKind, FileRecord};
 use crate::domain::risk::{AssessmentKey, AssessmentSource, RiskAssessment, RiskLevel};
 use crate::error::CoreError;
 use crate::ports::Clock;
-use crate::ports::ai::{AiProvider, StructuredRequest};
+use crate::ports::ai::{AiError, AiProvider, StructuredRequest};
 use crate::ports::repository::{
     AssessmentRepository, FileEntryRepository, FileFilter, FileQuery, FileSort,
 };
@@ -71,27 +73,22 @@ impl AnalysisService {
 
     /// Analyses an item. With `force`, ignores the cache (the "analyse again" button).
     pub fn analyze(&self, id: FileId, force: bool) -> Result<AnalysisOutcome, CoreError> {
-        let entry = self
-            .files
-            .get_many(&[id])?
+        self.analyze_many(&[id], force)?
             .pop()
-            .ok_or_else(|| CoreError::NotFound(format!("file {}", id.0)))?;
-        let record = &entry.record;
-        let now = self.clock.now();
+            .ok_or_else(|| CoreError::NotFound(format!("file {}", id.0)))
+    }
 
-        if record.is_protected {
-            let assessment = protected_verdict(&record.path).into_assessment(
-                record,
-                AssessmentSource::ProtectedRule,
-                "protected".into(),
-                now,
-            );
-            return Ok(AnalysisOutcome {
-                file_id: id,
-                assessment,
-                ai_error: None,
-            });
-        }
+    /// Analyses several items, sending everything that still needs the AI in as few requests
+    /// as possible (up to `MAX_BATCH` items each): the system prompt and schema are sent once
+    /// per batch instead of once per item. Unknown ids are skipped. Results keep input order.
+    pub fn analyze_many(
+        &self,
+        ids: &[FileId],
+        force: bool,
+    ) -> Result<Vec<AnalysisOutcome>, CoreError> {
+        let mut entries = self.files.get_many(ids)?;
+        entries.sort_by_key(|e| ids.iter().position(|id| *id == e.id));
+        let now = self.clock.now();
 
         // A misconfigured provider (e.g. missing key) is reported, not fatal.
         let (provider, setup_error) = match self.settings.provider() {
@@ -106,60 +103,177 @@ impl AnalysisService {
             },
         );
 
-        if !force {
-            let key = AssessmentKey {
-                path: record.path.clone(),
-                fingerprint: record.fingerprint(),
-                evaluator_version: version.clone(),
-            };
-            if let Some(assessment) = self.assessments.find(&key)? {
-                return Ok(AnalysisOutcome {
-                    file_id: id,
-                    assessment,
-                    ai_error: setup_error,
-                });
-            }
-        }
-
-        let rules = self.heuristics.analyze(record);
-        let (assessment, ai_error) = match provider {
-            Some(provider) => match self.ask_ai(provider.as_ref(), &entry) {
-                Ok(verdict) => {
-                    let (name, model) = provider.descriptor();
-                    let verdict = apply_safety_floor(verdict, &rules);
-                    let source = AssessmentSource::Ai {
-                        provider: name,
-                        model,
-                    };
-                    (verdict.into_assessment(record, source, version, now), None)
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "AI analysis failed, using local rules");
-                    let fallback = rules.into_assessment(
-                        record,
-                        AssessmentSource::Heuristic,
-                        HEURISTIC_VERSION.into(),
-                        now,
-                    );
-                    (fallback, Some(e.to_string()))
-                }
-            },
-            None => {
-                let assessment = rules.into_assessment(
+        let mut outcomes: Vec<AnalysisOutcome> = Vec::with_capacity(entries.len());
+        let mut pending: Vec<&FileEntry> = Vec::new();
+        for entry in &entries {
+            let record = &entry.record;
+            if record.is_protected {
+                let assessment = protected_verdict(&record.path).into_assessment(
                     record,
-                    AssessmentSource::Heuristic,
-                    HEURISTIC_VERSION.into(),
+                    AssessmentSource::ProtectedRule,
+                    "protected".into(),
                     now,
                 );
-                (assessment, setup_error)
+                outcomes.push(AnalysisOutcome {
+                    file_id: entry.id,
+                    assessment,
+                    ai_error: None,
+                });
+                continue;
+            }
+            if !force {
+                let key = AssessmentKey {
+                    path: record.path.clone(),
+                    fingerprint: record.fingerprint(),
+                    evaluator_version: version.clone(),
+                };
+                if let Some(assessment) = self.assessments.find(&key)? {
+                    outcomes.push(AnalysisOutcome {
+                        file_id: entry.id,
+                        assessment,
+                        ai_error: setup_error.clone(),
+                    });
+                    continue;
+                }
+            }
+            pending.push(entry);
+        }
+
+        let fresh: Vec<AnalysisOutcome> = match provider {
+            None => pending
+                .iter()
+                .map(|e| self.rules_outcome(e, now, setup_error.clone()))
+                .collect(),
+            Some(provider) if pending.len() == 1 => {
+                let entry = pending[0];
+                vec![match self.ask_ai(provider.as_ref(), entry) {
+                    Ok(verdict) => {
+                        self.ai_outcome(provider.as_ref(), entry, verdict, &version, now)
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "AI analysis failed, using local rules");
+                        self.rules_outcome(entry, now, Some(e.to_string()))
+                    }
+                }]
+            }
+            Some(provider) => {
+                let mut out = Vec::with_capacity(pending.len());
+                for chunk in pending.chunks(MAX_BATCH) {
+                    out.extend(self.analyze_batch(provider.as_ref(), chunk, &version, now)?);
+                }
+                out
             }
         };
-        self.assessments.save(&assessment)?;
-        Ok(AnalysisOutcome {
-            file_id: id,
+        for outcome in &fresh {
+            self.assessments.save(&outcome.assessment)?;
+        }
+        outcomes.extend(fresh);
+        outcomes.sort_by_key(|o| ids.iter().position(|id| *id == o.file_id));
+        Ok(outcomes)
+    }
+
+    /// One AI request for a chunk of items; items missing or invalid in the answer fall back
+    /// to local rules individually.
+    fn analyze_batch(
+        &self,
+        provider: &dyn AiProvider,
+        chunk: &[&FileEntry],
+        version: &str,
+        now: i64,
+    ) -> Result<Vec<AnalysisOutcome>, CoreError> {
+        let children: Vec<Vec<FileRecord>> = chunk
+            .iter()
+            .map(|e| self.children_of(e, BATCH_MAX_CHILDREN))
+            .collect::<Result<_, _>>()?;
+        let ids: Vec<String> = chunk.iter().map(|e| e.id.0.to_string()).collect();
+        let inputs: Vec<BatchInput<'_>> = chunk
+            .iter()
+            .zip(&children)
+            .zip(&ids)
+            .map(|((e, c), id)| BatchInput {
+                id,
+                record: &e.record,
+                children: c,
+            })
+            .collect();
+        let schema = batch_response_schema();
+        let user = batch_user_message(&inputs, &self.home);
+        let answer = provider
+            .complete_json(&StructuredRequest {
+                system: system_prompt(),
+                user: &user,
+                schema: &schema,
+                schema_name: BATCH_SCHEMA_NAME,
+            })
+            .and_then(|reply| parse_batch_response(&reply));
+
+        Ok(match answer {
+            Ok(mut by_id) => chunk
+                .iter()
+                .zip(&ids)
+                .map(|(entry, id)| match by_id.remove(id) {
+                    Some(Ok(verdict)) => self.ai_outcome(provider, entry, verdict, version, now),
+                    Some(Err(e)) => self.rules_outcome(entry, now, Some(e.to_string())),
+                    None => self.rules_outcome(
+                        entry,
+                        now,
+                        Some("a IA não respondeu sobre este item".into()),
+                    ),
+                })
+                .collect(),
+            Err(e) => {
+                tracing::warn!(error = %e, items = chunk.len(), "batch AI analysis failed");
+                chunk
+                    .iter()
+                    .map(|entry| self.rules_outcome(entry, now, Some(e.to_string())))
+                    .collect()
+            }
+        })
+    }
+
+    fn ai_outcome(
+        &self,
+        provider: &dyn AiProvider,
+        entry: &FileEntry,
+        verdict: Verdict,
+        version: &str,
+        now: i64,
+    ) -> AnalysisOutcome {
+        let (name, model) = provider.descriptor();
+        let rules = self.heuristics.analyze(&entry.record);
+        let assessment = apply_safety_floor(verdict, &rules).into_assessment(
+            &entry.record,
+            AssessmentSource::Ai {
+                provider: name,
+                model,
+            },
+            version.to_owned(),
+            now,
+        );
+        AnalysisOutcome {
+            file_id: entry.id,
+            assessment,
+            ai_error: None,
+        }
+    }
+
+    fn rules_outcome(
+        &self,
+        entry: &FileEntry,
+        now: i64,
+        ai_error: Option<String>,
+    ) -> AnalysisOutcome {
+        let assessment = self.heuristics.analyze(&entry.record).into_assessment(
+            &entry.record,
+            AssessmentSource::Heuristic,
+            HEURISTIC_VERSION.into(),
+            now,
+        );
+        AnalysisOutcome {
+            file_id: entry.id,
             assessment,
             ai_error,
-        })
+        }
     }
 
     /// Latest stored assessment for each item that still matches its current state (badges).
@@ -181,27 +295,10 @@ impl AnalysisService {
             .collect())
     }
 
-    fn ask_ai(&self, provider: &dyn AiProvider, entry: &FileEntry) -> Result<Verdict, CoreError> {
-        let children = if entry.record.kind == FileKind::File {
-            Vec::new()
-        } else {
-            let filter = FileFilter {
-                parent: Some(entry.record.path.clone()),
-                ..FileFilter::default()
-            };
-            let query = FileQuery::new(
-                filter,
-                FileSort::SizeDesc,
-                0,
-                u32::try_from(crate::analysis::prompt::MAX_CHILDREN).unwrap_or(15),
-            );
-            self.files
-                .page(entry.scan_id, &query)?
-                .items
-                .into_iter()
-                .map(|c| c.record)
-                .collect()
-        };
+    fn ask_ai(&self, provider: &dyn AiProvider, entry: &FileEntry) -> Result<Verdict, AiError> {
+        let children = self
+            .children_of(entry, MAX_CHILDREN)
+            .map_err(|e| AiError::InvalidConfig(e.to_string()))?;
         let schema = response_schema();
         let user = user_message(&entry.record, &children, &self.home);
         let reply = provider.complete_json(&StructuredRequest {
@@ -210,7 +307,31 @@ impl AnalysisService {
             schema: &schema,
             schema_name: SCHEMA_NAME,
         })?;
-        Ok(parse_response(&reply)?)
+        parse_response(&reply)
+    }
+
+    /// Largest catalogued children of a folder (empty for files).
+    fn children_of(&self, entry: &FileEntry, limit: usize) -> Result<Vec<FileRecord>, CoreError> {
+        if entry.record.kind == FileKind::File {
+            return Ok(Vec::new());
+        }
+        let filter = FileFilter {
+            parent: Some(entry.record.path.clone()),
+            ..FileFilter::default()
+        };
+        let query = FileQuery::new(
+            filter,
+            FileSort::SizeDesc,
+            0,
+            u32::try_from(limit).unwrap_or(u32::MAX),
+        );
+        Ok(self
+            .files
+            .page(entry.scan_id, &query)?
+            .items
+            .into_iter()
+            .map(|c| c.record)
+            .collect())
     }
 }
 
@@ -468,5 +589,153 @@ mod tests {
             h.service.analyze(FileId(99), false),
             Err(CoreError::NotFound(_))
         ));
+    }
+
+    /// Answers a batch request with one analysis per id found in the user message.
+    fn batch_responder(level: &'static str) -> FakeAiFactory {
+        FakeAiFactory::responding(move |req| {
+            if req.schema_name != "file_analyses" {
+                return Ok(ai_reply(level));
+            }
+            let start = req.user.find('{').unwrap();
+            let items: serde_json::Value = serde_json::from_str(&req.user[start..]).unwrap();
+            let analyses: Vec<_> = items["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|item| {
+                    let mut a = ai_reply(level);
+                    a["id"] = item["id"].clone();
+                    a
+                })
+                .collect();
+            Ok(json!({ "analyses": analyses }))
+        })
+    }
+
+    #[test]
+    fn batch_sends_one_request_for_many_items_and_keeps_order() {
+        let h = harness(batch_responder("Safe"));
+        enable_claude(&h);
+
+        let out = h
+            .service
+            .analyze_many(
+                &[FileId(4), FileId(3), FileId(1), FileId(2), FileId(99)],
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(
+            out.iter().map(|o| o.file_id).collect::<Vec<_>>(),
+            [FileId(4), FileId(3), FileId(1), FileId(2)],
+            "input order, unknown ids skipped"
+        );
+        assert_eq!(
+            h.factory.schema_names(),
+            ["file_analyses"],
+            "exactly one batch request"
+        );
+        let sent = &h.factory.requests()[0];
+        assert!(!sent.contains("/System"), "protected items are never sent");
+        assert!(
+            sent.contains(r#""id":"1""#)
+                && sent.contains(r#""id":"2""#)
+                && sent.contains(r#""id":"4""#)
+        );
+        assert_eq!(out[1].assessment.source, AssessmentSource::ProtectedRule);
+        assert!(matches!(
+            out[2].assessment.source,
+            AssessmentSource::Ai { .. }
+        ));
+        // Safety floor still applies inside batches: the AI said Safe for the Photos library.
+        assert_eq!(out[0].assessment.level, RiskLevel::Dangerous);
+    }
+
+    #[test]
+    fn cached_items_are_not_resent_in_a_batch() {
+        let h = harness(batch_responder("Caution"));
+        enable_claude(&h);
+        h.service.analyze(FileId(1), false).unwrap();
+
+        h.service
+            .analyze_many(&[FileId(1), FileId(2), FileId(4)], false)
+            .unwrap();
+
+        assert_eq!(h.factory.schema_names(), ["file_analysis", "file_analyses"]);
+        assert!(!h.factory.requests()[1].contains(r#""id":"1""#));
+    }
+
+    #[test]
+    fn items_missing_from_the_answer_fall_back_individually() {
+        let h = harness(FakeAiFactory::responding(|_| {
+            let mut a = ai_reply("Caution");
+            a["id"] = json!("1");
+            Ok(json!({ "analyses": [a, { "id": "2", "level": "???" }] }))
+        }));
+        enable_claude(&h);
+
+        let out = h
+            .service
+            .analyze_many(&[FileId(1), FileId(2), FileId(4)], false)
+            .unwrap();
+
+        assert!(matches!(
+            out[0].assessment.source,
+            AssessmentSource::Ai { .. }
+        ));
+        assert_eq!(out[1].assessment.source, AssessmentSource::Heuristic);
+        assert!(
+            out[1]
+                .ai_error
+                .as_deref()
+                .unwrap()
+                .contains("invalid response")
+        );
+        assert_eq!(out[2].assessment.source, AssessmentSource::Heuristic);
+        assert_eq!(
+            out[2].ai_error.as_deref(),
+            Some("a IA não respondeu sobre este item")
+        );
+    }
+
+    #[test]
+    fn a_failed_batch_falls_back_to_rules_for_all_items() {
+        let h = harness(FakeAiFactory::failing(AiError::RateLimited));
+        enable_claude(&h);
+        let out = h
+            .service
+            .analyze_many(&[FileId(1), FileId(2)], false)
+            .unwrap();
+        assert!(
+            out.iter()
+                .all(|o| o.assessment.source == AssessmentSource::Heuristic)
+        );
+        assert!(
+            out.iter()
+                .all(|o| o.ai_error.as_deref() == Some("rate limited by the provider"))
+        );
+    }
+
+    #[test]
+    fn large_selections_are_split_into_batches() {
+        let h = harness(batch_responder("Safe"));
+        enable_claude(&h);
+        let records: Vec<_> = (0..45)
+            .map(|i| {
+                record(
+                    &format!("/Users/alice/Downloads/file{i}.zip"),
+                    FileKind::File,
+                    false,
+                )
+            })
+            .collect();
+        h.files.insert_batch(h.scan, &records).unwrap();
+        let ids: Vec<FileId> = (5..50).map(FileId).collect();
+
+        let out = h.service.analyze_many(&ids, false).unwrap();
+
+        assert_eq!(out.len(), 45);
+        assert_eq!(h.factory.schema_names().len(), 3, "20 + 20 + 5");
     }
 }
