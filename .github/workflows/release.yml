@@ -23,7 +23,7 @@ jobs:
       - run: npm ci
       # Unsigned universal build. To sign and notarize, add the APPLE_* secrets
       # documented at https://v2.tauri.app/distribute/sign/macos/.
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
