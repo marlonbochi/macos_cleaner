@@ -25,7 +25,7 @@ const NAV = [
 <style scoped>
 .shell {
   display: grid;
-  grid-template-columns: 210px 1fr;
+  grid-template-columns: 190px 1fr;
   height: 100vh;
 }
 
@@ -61,5 +61,11 @@ const NAV = [
 .content {
   overflow: auto;
   padding: 1.5rem 2rem;
+}
+
+@media (max-width: 1100px) {
+  .content {
+    padding: 1.25rem 1rem;
+  }
 }
 </style>

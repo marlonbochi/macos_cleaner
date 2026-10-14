@@ -21,10 +21,18 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
 
 <template>
   <table class="file-table">
+    <!-- Fixed widths for data columns; the name column takes all remaining space. -->
+    <colgroup>
+      <col />
+      <col class="col-size" />
+      <col class="col-num" />
+      <col class="col-date" />
+      <col class="col-actions" />
+    </colgroup>
     <thead>
       <tr>
         <th>{{ $t("files.name") }}</th>
-        <th class="size">{{ $t("files.size") }}</th>
+        <th>{{ $t("files.size") }}</th>
         <th class="num">{{ $t("files.items") }}</th>
         <th>{{ $t("files.modified") }}</th>
         <th />
@@ -32,19 +40,21 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
     </thead>
     <tbody>
       <tr v-for="item in items" :key="item.id" :data-test="`row-${item.id}`">
-        <td class="name">
-          <span class="icon" :title="$t(`files.kind.${item.kind}`)">{{ ICONS[item.kind] }}</span>
-          <div class="labels">
-            <span class="title">
-              {{ item.name }}
-              <span v-if="item.isProtected" class="badge" :title="$t('files.protected')">🔒</span>
-            </span>
-            <span class="muted mono path" :title="item.path">
-              {{ shortenPath(parentPath(item.path), home) }}
-            </span>
+        <td>
+          <div class="name">
+            <span class="icon" :title="$t(`files.kind.${item.kind}`)">{{ ICONS[item.kind] }}</span>
+            <div class="labels">
+              <span class="title" :title="item.name">
+                {{ item.name }}
+                <span v-if="item.isProtected" class="badge" :title="$t('files.protected')">🔒</span>
+              </span>
+              <span class="muted mono path" :title="item.path">
+                {{ shortenPath(parentPath(item.path), home) }}
+              </span>
+            </div>
           </div>
         </td>
-        <td class="size">
+        <td>
           <span class="value">{{ formatBytes(item.sizeOnDisk) }}</span>
           <SizeBar :value="item.sizeOnDisk" :max="maxSize" />
         </td>
@@ -55,12 +65,18 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
             v-if="item.kind === 'Directory'"
             class="link"
             data-test="open-folder"
+            :title="$t('files.openTitle')"
             @click="$emit('openFolder', item.path)"
           >
             {{ $t("files.open") }}
           </button>
-          <button class="link" data-test="reveal" @click="$emit('reveal', item.path)">
-            {{ $t("common.revealInFinder") }}
+          <button
+            class="link"
+            data-test="reveal"
+            :title="$t('common.revealInFinder')"
+            @click="$emit('reveal', item.path)"
+          >
+            {{ $t("files.reveal") }}
           </button>
         </td>
       </tr>
@@ -73,6 +89,22 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+}
+
+.col-size {
+  width: 140px;
+}
+
+.col-num {
+  width: 80px;
+}
+
+.col-date {
+  width: 90px;
+}
+
+.col-actions {
+  width: 105px;
 }
 
 th {
@@ -94,18 +126,15 @@ tbody tr:hover {
   background: var(--surface-muted);
 }
 
-th:first-child,
-td.name {
-  width: 45%;
-}
-
 .name {
   display: flex;
   gap: 0.6rem;
   align-items: center;
+  min-width: 0;
 }
 
 .icon {
+  flex: none;
   font-size: 1.2rem;
 }
 
@@ -122,18 +151,13 @@ td.name {
   text-overflow: ellipsis;
 }
 
-.size {
-  width: 20%;
-}
-
-.size .value {
+.value {
   display: block;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
 
 .num {
-  width: 10%;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

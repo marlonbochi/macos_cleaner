@@ -22,7 +22,7 @@ const percent = computed(() => {
   border-radius: 3px;
   background: var(--bar-track);
   overflow: hidden;
-  min-width: 80px;
+  min-width: 60px;
 }
 
 .fill {

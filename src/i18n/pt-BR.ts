@@ -71,7 +71,9 @@ export default {
     modified: "Modificado",
     location: "Local",
     protected: "Protegido pelo sistema",
-    open: "Abrir pasta",
+    open: "Abrir",
+    openTitle: "Ver o conteúdo desta pasta",
+    reveal: "Finder",
     up: "Voltar",
     root: "Todos",
     filters: {
