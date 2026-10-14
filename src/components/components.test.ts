@@ -61,6 +61,42 @@ describe("FileTable", () => {
   });
 });
 
+describe("FileTable selection", () => {
+  const items = [
+    fileEntry({ id: 1, path: "/Users/alice/a.mov" }),
+    fileEntry({ id: 2, path: "/Users/alice/b.zip" }),
+    fileEntry({ id: 3, path: "/System/x", isProtected: true }),
+  ];
+
+  it("toggles rows and never allows selecting protected items", async () => {
+    const { wrapper } = await mountWithPlugins(FileTable, {
+      props: { items, maxSize: 1, home: null, selected: [2] },
+    });
+    const box = (id: number) => wrapper.find(`[data-test="row-${id}"] [data-test="select"]`);
+    expect((box(2).element as HTMLInputElement).checked).toBe(true);
+    expect(box(3).attributes("disabled")).toBeDefined();
+    expect(wrapper.find('[data-test="row-2"]').classes()).toContain("selected");
+
+    await box(1).trigger("change");
+    expect(wrapper.emitted("toggle")).toEqual([[1]]);
+  });
+
+  it("header checkbox selects every selectable row of the page", async () => {
+    const { wrapper } = await mountWithPlugins(FileTable, {
+      props: { items, maxSize: 1, home: null, selected: [1] },
+    });
+    const header = wrapper.find('[data-test="select-page"]');
+    expect((header.element as HTMLInputElement).indeterminate).toBe(true);
+    await header.trigger("change");
+    expect(wrapper.emitted("toggleAll")).toEqual([[[1, 2], true]]);
+
+    await wrapper.setProps({ selected: [1, 2] });
+    expect((header.element as HTMLInputElement).checked).toBe(true);
+    await header.trigger("change");
+    expect(wrapper.emitted("toggleAll")?.[1]).toEqual([[1, 2], false]);
+  });
+});
+
 describe("PaginationBar", () => {
   it("shows the visible range and disables unavailable directions", async () => {
     const { wrapper } = await mountWithPlugins(PaginationBar, {

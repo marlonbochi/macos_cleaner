@@ -26,11 +26,31 @@ export const useCatalogStore = defineStore("catalog", () => {
   const folder = ref<string | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  /** Ids chosen with the checkboxes; kept across pages and filters of the same scan. */
+  const selected = ref<number[]>([]);
 
   const hasPrevious = computed(() => offset.value > 0);
   const hasNext = computed(() => offset.value + items.value.length < total.value);
   /** Largest size on the current page, used to scale size bars. */
   const maxSize = computed(() => items.value.reduce((m, e) => Math.max(m, e.sizeOnDisk), 0));
+
+  const isSelected = (id: number) => selected.value.includes(id);
+
+  function toggleSelected(id: number): void {
+    selected.value = isSelected(id)
+      ? selected.value.filter((s) => s !== id)
+      : [...selected.value, id];
+  }
+
+  /** Selects or clears the given ids (the header checkbox acts on the current page). */
+  function setSelected(ids: number[], value: boolean): void {
+    const others = selected.value.filter((id) => !ids.includes(id));
+    selected.value = value ? [...others, ...ids] : others;
+  }
+
+  function clearSelection(): void {
+    selected.value = [];
+  }
 
   let requestSeq = 0;
 
@@ -76,6 +96,7 @@ export const useCatalogStore = defineStore("catalog", () => {
       scanId.value = id;
       folder.value = null;
       offset.value = 0;
+      selected.value = [];
     }
     await load();
   }
@@ -119,6 +140,7 @@ export const useCatalogStore = defineStore("catalog", () => {
     offset.value = 0;
     folder.value = null;
     filter.value = emptyFilter();
+    selected.value = [];
   }
 
   return {
@@ -131,6 +153,11 @@ export const useCatalogStore = defineStore("catalog", () => {
     folder,
     loading,
     error,
+    selected,
+    isSelected,
+    toggleSelected,
+    setSelected,
+    clearSelection,
     hasPrevious,
     hasNext,
     maxSize,

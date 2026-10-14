@@ -11,6 +11,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
   /** Item shown in the analysis panel. */
   const selected = ref<FileEntryDto | null>(null);
   const error = ref<string | null>(null);
+  /** Summary of the last multi-item analysis, shown above the table. */
+  const lastBatch = ref<{ count: number; fallbacks: number; aiError: string | null } | null>(null);
 
   const current = computed(() =>
     selected.value ? (byFileId.value[selected.value.id] ?? null) : null,
@@ -41,6 +43,29 @@ export const useAnalysisStore = defineStore("analysis", () => {
     }
   }
 
+  /** Analyses many items at once (one AI request per batch of items on the backend). */
+  async function analyzeMany(ids: number[], force = false): Promise<void> {
+    const todo = ids.filter((id) => !isAnalyzing(id));
+    if (todo.length === 0) return;
+    error.value = null;
+    lastBatch.value = null;
+    analyzing.value = [...analyzing.value, ...todo];
+    try {
+      const results = await useApi().analysis.analyzeMany(todo, force);
+      for (const analysis of results) byFileId.value[analysis.fileId] = analysis;
+      const failed = results.filter((r) => r.aiError);
+      lastBatch.value = {
+        count: results.length,
+        fallbacks: failed.length,
+        aiError: failed[0]?.aiError ?? null,
+      };
+    } catch (e) {
+      error.value = IpcError.from(e).message;
+    } finally {
+      analyzing.value = analyzing.value.filter((id) => !todo.includes(id));
+    }
+  }
+
   /** Opens the panel for an item and analyses it if there is no analysis yet. */
   async function open(item: FileEntryDto): Promise<void> {
     selected.value = item;
@@ -59,8 +84,10 @@ export const useAnalysisStore = defineStore("analysis", () => {
     error,
     current,
     isAnalyzing,
+    lastBatch,
     loadFor,
     analyze,
+    analyzeMany,
     open,
     close,
   };

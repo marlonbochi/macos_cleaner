@@ -31,6 +31,9 @@ function backend(latest: ScanSummaryDto | null = scanSummary({ id: 3 })) {
     .on("list_folder_children", () => page([fileEntry({ id: 5, name: "inner.mov" })]))
     .on("get_analyses", () => [analysis({ fileId: 2, level: "Safe" })])
     .on("analyze_file", (args) => analysis({ fileId: args.fileId as number }))
+    .on("analyze_files", (args) =>
+      (args.fileIds as number[]).map((fileId) => analysis({ fileId, level: "Safe" })),
+    )
     .on("get_ai_settings", () => aiSettings());
   provideApi(transport);
   return transport;
@@ -150,6 +153,27 @@ describe("FilesView analysis", () => {
 
     await wrapper.find('[data-test="close"]').trigger("click");
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  });
+});
+
+describe("FilesView batch analysis", () => {
+  it("analyses the selected items in one request and clears the selection", async () => {
+    const transport = backend();
+    const { wrapper } = await mountWithPlugins(FilesView, {}, { path: "/files" });
+    await flushPromises();
+    expect(wrapper.find('[data-test="selection-bar"]').exists()).toBe(false);
+
+    await wrapper.find('[data-test="select-page"]').trigger("change");
+    expect(wrapper.find('[data-test="selection-bar"]').text()).toContain("2 selecionado(s)");
+
+    await wrapper.find('[data-test="analyze-selected"]').trigger("click");
+    await flushPromises();
+
+    expect(transport.calls.filter((c) => c.command === "analyze_files")).toHaveLength(1);
+    expect(transport.lastCall("analyze_files")).toEqual({ fileIds: [1, 2], force: false });
+    expect(wrapper.find('[data-test="batch-result"]').text()).toContain("2 item(ns) analisado(s).");
+    expect(wrapper.find('[data-test="row-1"] [data-level="Safe"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="selection-bar"]').exists()).toBe(false);
   });
 });
 

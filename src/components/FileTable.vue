@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import {
   formatBytes,
   formatCount,
@@ -11,21 +12,34 @@ import type { FileEntryDto } from "@/types/generated/FileEntryDto";
 import RiskBadge from "./RiskBadge.vue";
 import SizeBar from "./SizeBar.vue";
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     items: FileEntryDto[];
     maxSize: number;
     home: string | null;
     analyses?: Record<number, AnalysisDto>;
     analyzing?: number[];
+    /** Selected ids; protected items cannot be selected. */
+    selected?: number[];
   }>(),
-  { analyses: () => ({}), analyzing: () => [] },
+  { analyses: () => ({}), analyzing: () => [], selected: () => [] },
 );
 defineEmits<{
   openFolder: [path: string];
   reveal: [path: string];
   analyze: [item: FileEntryDto];
+  toggle: [id: number];
+  toggleAll: [ids: number[], value: boolean];
 }>();
+
+const selectable = computed(() => props.items.filter((i) => !i.isProtected).map((i) => i.id));
+const selectedOnPage = computed(
+  () => selectable.value.filter((id) => props.selected.includes(id)).length,
+);
+const allSelected = computed(
+  () => selectable.value.length > 0 && selectedOnPage.value === selectable.value.length,
+);
+const someSelected = computed(() => selectedOnPage.value > 0 && !allSelected.value);
 
 const ICONS: Record<FileEntryDto["kind"], string> = {
   File: "📄",
@@ -38,6 +52,7 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
   <table class="file-table">
     <!-- Fixed widths for data columns; the name column takes all remaining space. -->
     <colgroup>
+      <col class="col-check" />
       <col />
       <col class="col-size" />
       <col class="col-num" />
@@ -46,6 +61,17 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
     </colgroup>
     <thead>
       <tr>
+        <th class="check">
+          <input
+            type="checkbox"
+            data-test="select-page"
+            :aria-label="$t('files.selectPage')"
+            :checked="allSelected"
+            :indeterminate="someSelected"
+            :disabled="selectable.length === 0"
+            @change="$emit('toggleAll', selectable, !allSelected)"
+          />
+        </th>
         <th>{{ $t("files.name") }}</th>
         <th>{{ $t("files.size") }}</th>
         <th class="num">{{ $t("files.items") }}</th>
@@ -54,7 +80,22 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
       </tr>
     </thead>
     <tbody>
-      <tr v-for="item in items" :key="item.id" :data-test="`row-${item.id}`">
+      <tr
+        v-for="item in items"
+        :key="item.id"
+        :data-test="`row-${item.id}`"
+        :class="{ selected: selected.includes(item.id) }"
+      >
+        <td class="check">
+          <input
+            type="checkbox"
+            data-test="select"
+            :aria-label="$t('files.select', { name: item.name })"
+            :checked="selected.includes(item.id)"
+            :disabled="item.isProtected"
+            @change="$emit('toggle', item.id)"
+          />
+        </td>
         <td>
           <div class="name">
             <span class="icon" :title="$t(`files.kind.${item.kind}`)">{{ ICONS[item.kind] }}</span>
@@ -119,6 +160,20 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+}
+
+.col-check {
+  width: 32px;
+}
+
+.check {
+  text-align: center;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+tr.selected {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .col-size {

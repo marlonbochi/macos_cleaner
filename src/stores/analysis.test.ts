@@ -8,7 +8,12 @@ import { useAnalysisStore } from "./analysis";
 function setup() {
   const transport = new FakeTransport()
     .on("analyze_file", (args) => analysis({ fileId: args.fileId as number }))
-    .on("get_analyses", () => [analysis({ fileId: 2, level: "Safe" })]);
+    .on("get_analyses", () => [analysis({ fileId: 2, level: "Safe" })])
+    .on("analyze_files", (args) =>
+      (args.fileIds as number[]).map((fileId) =>
+        analysis({ fileId, aiError: fileId === 3 ? "rate limited" : null }),
+      ),
+    );
   provideApi(transport);
   setActivePinia(createPinia());
   return { transport, store: useAnalysisStore() };
@@ -75,5 +80,30 @@ describe("analysis store", () => {
     });
     await store.loadFor([1]);
     expect(store.error).toBe("db");
+  });
+
+  it("analyses many items in one call and summarises fallbacks", async () => {
+    const { transport, store } = setup();
+
+    await store.analyzeMany([1, 2, 3]);
+
+    expect(transport.lastCall("analyze_files")).toEqual({ fileIds: [1, 2, 3], force: false });
+    expect(Object.keys(store.byFileId)).toEqual(["1", "2", "3"]);
+    expect(store.lastBatch).toEqual({ count: 3, fallbacks: 1, aiError: "rate limited" });
+    expect(store.analyzing).toEqual([]);
+  });
+
+  it("skips items already being analysed and reports batch errors", async () => {
+    const { transport, store } = setup();
+    store.analyzing.push(1);
+    await store.analyzeMany([1]);
+    expect(transport.lastCall("analyze_files")).toBeUndefined();
+
+    transport.on("analyze_files", () => {
+      throw { code: "INVALID_INPUT", message: "select at most 200 items" };
+    });
+    await store.analyzeMany([2]);
+    expect(store.error).toBe("select at most 200 items");
+    expect(store.analyzing).toEqual([1]);
   });
 });

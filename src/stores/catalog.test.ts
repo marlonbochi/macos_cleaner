@@ -120,4 +120,26 @@ describe("catalog store", () => {
     expect(store.scanId).toBeNull();
     expect(store.items).toEqual([]);
   });
+
+  it("keeps a selection across pages and clears it for a new scan", async () => {
+    const { store } = setup();
+    await store.open(5);
+    store.toggleSelected(1);
+    store.setSelected([2, 3], true);
+    expect(store.selected).toEqual([1, 2, 3]);
+    expect(store.isSelected(2)).toBe(true);
+
+    store.toggleSelected(1);
+    store.setSelected([3], false);
+    expect(store.selected).toEqual([2]);
+
+    await store.nextPage();
+    expect(store.selected).toEqual([2]);
+    await store.open(6);
+    expect(store.selected).toEqual([]);
+
+    store.setSelected([7], true);
+    store.clearSelection();
+    expect(store.selected).toEqual([]);
+  });
 });

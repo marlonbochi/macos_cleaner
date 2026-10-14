@@ -102,6 +102,11 @@ export class AnalysisApi {
     return this.transport.invoke("analyze_file", { fileId, force });
   }
 
+  /** Analyses many items; the backend groups them into as few AI requests as possible. */
+  analyzeMany(fileIds: number[], force = false): Promise<AnalysisDto[]> {
+    return this.transport.invoke("analyze_files", { fileIds, force });
+  }
+
   /** Stored analyses still valid for these items (used for risk badges). */
   list(fileIds: number[]): Promise<AnalysisDto[]> {
     return this.transport.invoke("get_analyses", { fileIds });

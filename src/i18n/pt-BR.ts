@@ -77,6 +77,16 @@ export default {
     reveal: "Finder",
     up: "Voltar",
     analyze: "Analisar",
+    select: "Selecionar {name}",
+    selectPage: "Selecionar todos desta página",
+    selection: "{count} selecionado(s)",
+    analyzeSelected: "Analisar selecionados com IA",
+    analyzingSelected: "Analisando {count} item(ns)…",
+    clearSelection: "Limpar seleção",
+    batchHint:
+      "Os itens são enviados juntos, em lotes de até 20 por requisição, economizando tokens.",
+    batchDone: "{count} item(ns) analisado(s).",
+    batchFallback: "{count} usaram as regras locais ({message}).",
     analyzeTitle: "Avaliar o risco de apagar e como liberar esse espaço",
     root: "Todos",
     filters: {

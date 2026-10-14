@@ -64,6 +64,13 @@ const breadcrumb = computed(() =>
   catalog.folder ? shortenPath(catalog.folder, home.value) : null,
 );
 
+const batchRunning = computed(() => catalog.selected.some((id) => analysis.analyzing.includes(id)));
+
+async function analyzeSelected(): Promise<void> {
+  await analysis.analyzeMany([...catalog.selected]);
+  if (!analysis.error) catalog.clearSelection();
+}
+
 function goUp(): void {
   if (!catalog.folder) return;
   const isRoot = finishedScan.value?.roots.includes(catalog.folder) ?? false;
@@ -112,6 +119,39 @@ function goUp(): void {
           <button class="link" @click="catalog.openFolder(null)">{{ $t("files.root") }}</button>
           <span class="mono">/ {{ breadcrumb }}</span>
         </nav>
+        <div v-if="catalog.selected.length > 0" class="row selection" data-test="selection-bar">
+          <strong>{{ $t("files.selection", { count: catalog.selected.length }) }}</strong>
+          <button
+            class="primary"
+            data-test="analyze-selected"
+            :disabled="batchRunning"
+            :title="$t('files.batchHint')"
+            @click="analyzeSelected"
+          >
+            {{
+              batchRunning
+                ? $t("files.analyzingSelected", { count: catalog.selected.length })
+                : $t("files.analyzeSelected")
+            }}
+          </button>
+          <button class="link" :disabled="batchRunning" @click="catalog.clearSelection">
+            {{ $t("files.clearSelection") }}
+          </button>
+        </div>
+        <p v-if="analysis.lastBatch" class="muted" data-test="batch-result">
+          {{ $t("files.batchDone", { count: analysis.lastBatch.count }) }}
+          <span v-if="analysis.lastBatch.fallbacks > 0" class="warning-text">
+            {{
+              $t("files.batchFallback", {
+                count: analysis.lastBatch.fallbacks,
+                message: analysis.lastBatch.aiError,
+              })
+            }}
+          </span>
+        </p>
+        <p v-if="analysis.error && !analysis.selected" class="error" role="alert">
+          {{ $t("errors.generic", { message: analysis.error }) }}
+        </p>
         <p v-if="catalog.error" class="error" role="alert">
           {{ $t("errors.generic", { message: catalog.error }) }}
         </p>
@@ -125,6 +165,9 @@ function goUp(): void {
           :home="home"
           :analyses="analysis.byFileId"
           :analyzing="analysis.analyzing"
+          :selected="catalog.selected"
+          @toggle="catalog.toggleSelected"
+          @toggle-all="catalog.setSelected"
           @open-folder="catalog.openFolder"
           @reveal="catalog.revealInFinder"
           @analyze="analysis.open"
@@ -159,6 +202,17 @@ function goUp(): void {
 <style scoped>
 .filters {
   gap: 0.75rem;
+}
+
+.selection {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.warning-text {
+  color: var(--warning);
 }
 
 .breadcrumb {
