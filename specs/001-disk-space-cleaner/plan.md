@@ -1,4 +1,4 @@
-# Implementation Plan: Analisador e Limpador de Espaço em Disco com IA
+# Implementation Plan: AI-Assisted Disk Space Analyzer and Cleaner
 
 **Branch**: `001-disk-space-cleaner` | **Date**: 2026-10-14 | **Spec**: [spec.md](./spec.md)
 
@@ -6,60 +6,60 @@
 
 ## Summary
 
-App desktop macOS que varre o disco (somente leitura), cataloga em SQLite os maiores arquivos,
-pastas, aplicações/jogos e arquivos de nuvem baixados, classifica o risco de exclusão com uma
-cadeia de classificadores (regras protegidas → cache → IA em nuvem ou local → heurística) e
-executa ações auditáveis (Lixeira, "manter só na nuvem") somente após revisão do usuário.
-Arquitetura hexagonal em Rust (workspace com `cleaner-core`, `cleaner-infra`, `src-tauri`) e
-frontend Vue 3 + TypeScript. Detalhes das decisões em [research.md](./research.md).
+A macOS desktop app that scans the disk (read-only), catalogues the largest files, folders,
+applications/games and downloaded cloud files in SQLite, classifies deletion risk through a
+classifier chain (protected rules → cache → cloud or local AI → heuristics) and runs auditable
+actions (Trash, "keep only in the cloud") only after the user's review. Hexagonal Rust
+architecture (workspace with `cleaner-core`, `cleaner-infra`, `src-tauri`) and a Vue 3 +
+TypeScript frontend. Decisions are detailed in [research.md](./research.md).
 
 ## Technical Context
 
-**Language/Version**: Rust stable (edição 2021, toolchain fixada em `rust-toolchain.toml`);
-TypeScript 5.x (strict); Node 22 LTS
+**Language/Version**: Rust stable (edition 2024, toolchain pinned in `rust-toolchain.toml`);
+TypeScript (strict); Node 22 LTS
 
-**Primary Dependencies**: Tauri 2.x, `jwalk`, `rusqlite` (bundled) + `rusqlite_migration`,
-`serde`/`serde_json`, `thiserror`, `tracing`, `reqwest` (rustls), `trash`, `keyring`
-(apple-native), `plist`, `objc2-foundation`, `ts-rs`, `crossbeam-channel`; Vue 3, Pinia,
-Vue Router, vue-i18n, `@tauri-apps/api` v2, `tauri-plugin-dialog`
+**Primary Dependencies**: Tauri 2.x (+ `tauri-plugin-dialog`), `jwalk`, `rusqlite` (bundled) +
+`rusqlite_migration`, `serde`/`serde_json`, `thiserror`, `tracing`, `reqwest` (blocking, rustls),
+`security-framework` (Keychain), `ts-rs`; planned for later stories: `trash`, `plist`,
+`objc2-foundation`. Frontend: Vue 3, Pinia, Vue Router, vue-i18n, `@tauri-apps/api` v2
 
-**Storage**: SQLite (WAL) em `~/Library/Application Support/<bundle-id>/catalog.sqlite3`;
-segredos no Keychain
+**Storage**: SQLite (WAL) at `~/Library/Application Support/<bundle-id>/catalog.sqlite3`;
+secrets in the Keychain
 
-**Testing**: `cargo test`, `proptest`, `insta`, `tempfile`, `wiremock`, `cargo-llvm-cov`;
-Vitest + Vue Test Utils + `@tauri-apps/api/mocks`
+**Testing**: `cargo test`, `proptest`, `tempfile`, `mockito` (local mock HTTP server for AI
+providers), `cargo-llvm-cov`; Vitest + Vue Test Utils + `@tauri-apps/api/mocks`
 
-**Target Platform**: macOS 13+ (aarch64 e x86_64), distribuição fora da App Store (.dmg)
+**Target Platform**: macOS 13+ (aarch64 and x86_64), distributed outside the App Store (.dmg)
 
-**Project Type**: desktop-app (Tauri: núcleo Rust + webview Vue)
+**Project Type**: desktop app (Tauri: Rust core + Vue webview)
 
-**Performance Goals**: varredura de 1 M de arquivos < 5 min em SSD; re-varredura sem mudanças
-< 25% do tempo; UI responde < 200 ms durante a varredura; listas paginadas ≤ 500 itens
+**Performance Goals**: 1M-file scan < 5 min on SSD; UI responds < 200 ms during scans; paginated
+lists ≤ 500 items per request
 
-**Constraints**: somente leitura na varredura; nenhum envio de conteúdo à IA sem opt-in;
-funcionamento offline (heurística); memória do processo < 500 MB durante varredura de 1 M itens
+**Constraints**: read-only scanning; no file contents sent to AI without opt-in; offline
+operation (heuristics); process memory < 500 MB while scanning 1M items
 
-**Scale/Scope**: 1 usuário local; catálogos de até ~5 M entradas vistas (persistidas só as
-≥ limite); ~8 telas (Varredura, Arquivos, Pastas, Aplicações e Jogos, Nuvem, Revisão, Histórico,
-Configurações)
+**Scale/Scope**: single local user; catalogues of up to ~5M entries seen (only entries above the
+threshold persisted); ~8 screens (Scan, Largest items, Folders, Applications & Games, Cloud,
+Review, History, Settings)
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Princípio | Como o plano atende | Status |
+| Principle | How the plan complies | Status |
 |---|---|---|
-| I. Segurança dos dados | Scanner sem operações de escrita; `ProtectedPathPolicy` + `ActionExecutor` com revalidação por fingerprint; Lixeira padrão; sem exclusão permanente na v1; `ActionRecord` append-only; symlinks não seguidos | ✅ |
-| II. Arquitetura limpa | Hexagonal com `cleaner-core` sem I/O; ports em [core-ports.md](./contracts/core-ports.md); Repository, Strategy, Chain of Responsibility, Observer, Command, Factory/Adapter; `thiserror`; clippy proíbe `unwrap` fora de testes (`clippy::unwrap_used`) | ✅ |
-| III. Testes primeiro | Fakes de todos os ports; integração com FS/SQLite reais; `wiremock` para IA; cobertura 80%/70% no CI; testes dedicados para cada regra do Princípio I | ✅ |
-| IV. IA consultora | Só metadados, `~` no lugar do home; schema validado; fallback heurístico; cache por fingerprint+versão; IA nunca pré-seleciona | ✅ |
-| V. Desempenho | `jwalk` paralelo, `spawn_blocking`, cancelamento, `Channel` com throttle, inserções em lote, paginação no banco, re-varredura incremental | ✅ |
-| VI. Simplicidade | SQLite único, sem servidor; `rusqlite` em vez de ORM; sem kit de UI; E2E e FSEvents adiados | ✅ |
-| Stack & Restrições | Tauri v2, Vue 3 + TS, SQLite, macOS 13+, mecanismos oficiais de nuvem, Keychain | ✅ |
-| Quality Gates | CI com fmt, clippy, test, cobertura, eslint, prettier, vue-tsc, vitest, build dmg; release por tag | ✅ |
+| I. User data safety | Scanner performs no writes; `ProtectedPathPolicy` + `ActionExecutor` with fingerprint re-validation; Trash by default; no permanent deletion in v1; append-only `ActionRecord`; symlinks not followed | ✅ |
+| II. Clean architecture | Hexagonal, I/O-free `cleaner-core`; ports in [core-ports.md](./contracts/core-ports.md); Repository, Strategy, Chain of Responsibility, Observer, Command, Factory/Adapter; `thiserror`; clippy denies `unwrap` outside tests | ✅ |
+| III. Test first | Fakes for every port; integration tests on real FS/SQLite; mock HTTP server for AI; 80%/70% coverage gates in CI; dedicated tests for each Principle I rule | ✅ |
+| IV. AI advises | Metadata only, home shown as `~`; schema-validated answers; heuristic fallback; cache keyed by fingerprint + evaluator version; AI never pre-selects | ✅ |
+| V. Performance | Parallel `jwalk`, `spawn_blocking`, cancellation, throttled `Channel`, batched inserts, database pagination | ✅ |
+| VI. Simplicity | Single SQLite file, no server; `rusqlite` instead of an ORM; no UI kit; E2E and FSEvents deferred | ✅ |
+| Stack & constraints | Tauri v2, Vue 3 + TS, SQLite, macOS 13+, official cloud mechanisms, Keychain | ✅ |
+| Quality gates | CI with fmt, clippy, tests, coverage, ESLint, Prettier, vue-tsc, Vitest, dmg build; tag-based release | ✅ |
 
-**Re-check pós-design (Phase 1)**: ✅ sem violações. Ver Complexity Tracking para os pontos
-que adicionam estrutura.
+**Post-design re-check (Phase 1)**: ✅ no violations. See Complexity Tracking for the points that
+add structure.
 
 ## Project Structure
 
@@ -76,7 +76,7 @@ specs/001-disk-space-cleaner/
 │   ├── core-ports.md
 │   └── ai-classification.md
 ├── checklists/requirements.md
-└── tasks.md               # /speckit-tasks
+└── tasks.md
 ```
 
 ### Source Code (repository root)
@@ -85,76 +85,66 @@ specs/001-disk-space-cleaner/
 Cargo.toml                      # workspace
 rust-toolchain.toml
 crates/
-├── cleaner-core/               # domínio + casos de uso + ports (sem I/O, sem Tauri)
-│   ├── src/
-│   │   ├── domain/             # scan.rs, file_entry.rs, risk.rs, app.rs, cloud.rs, action.rs, size.rs
-│   │   ├── ports/              # filesystem.rs, repository.rs, ai.rs, actions.rs, apps.rs, cloud.rs, secrets.rs, clock.rs
-│   │   ├── policy/             # protected_paths.rs, heuristics.rs
-│   │   ├── classify/           # chain.rs, protected.rs, cached.rs, ai.rs, heuristic.rs
-│   │   ├── services/           # scan_service.rs, catalog_service.rs, assessment_service.rs,
-│   │   │                       # cleanup_service.rs, apps_service.rs, cloud_service.rs
-│   │   ├── testing/            # fakes in-memory (feature "testing")
-│   │   └── lib.rs
-│   └── tests/                  # risk_benchmark.rs, service-level tests
+├── cleaner-core/               # domain + use cases + ports (no I/O, no Tauri)
+│   └── src/
+│       ├── domain/             # scan, file_entry, risk, ai, action, size, package
+│       ├── ports/              # filesystem, repository, ai (provider, factory, secrets), Clock
+│       ├── policy/             # protected_paths
+│       ├── analysis/           # heuristics, prompt (+ batch), verdict
+│       ├── services/           # scan, catalog, analysis, ai_settings (later: cleanup, apps, cloud)
+│       └── testing/            # in-memory fakes ("testing" feature)
 ├── cleaner-infra/              # adapters
 │   ├── src/
-│   │   ├── fs/                 # jwalk_scanner.rs, inspector.rs
-│   │   ├── db/                 # connection.rs, migrations/V001__initial.sql, *_repository.rs
-│   │   ├── ai/                 # factory.rs, anthropic.rs, openai.rs, ollama.rs, prompt.rs, schema.rs
-│   │   ├── apps/               # bundle.rs, steam.rs, epic.rs, gog.rs, battlenet.rs, spotlight.rs
-│   │   ├── cloud/              # detector.rs, icloud.rs, file_provider.rs, evict.rs
-│   │   └── macos/              # trash.rs, keychain.rs, permissions.rs, finder.rs
-│   └── tests/                  # integração: scanner_fs.rs, sqlite_repos.rs, ai_providers.rs, ...
+│   │   ├── fs/                 # jwalk_scanner, inspector, metadata
+│   │   ├── db/                 # migrations/V00N__*.sql, *_repository.rs
+│   │   ├── ai/                 # factory, http, providers (Claude/OpenAI/Gemini/Ollama), models
+│   │   └── macos/              # Full Disk Access, Finder, Keychain
+│   └── tests/                  # integration: scanner, SQLite, AI providers, model listing
 src-tauri/
 ├── src/
-│   ├── main.rs, lib.rs         # composition root (injeção de dependências)
-│   ├── state.rs                # AppState com serviços
+│   ├── lib.rs, main.rs         # app setup
+│   ├── state.rs                # composition root (dependency injection by hand)
 │   ├── error.rs                # AppError → IPC
-│   ├── dto.rs                  # DTOs com #[derive(TS)]
-│   └── commands/               # scan.rs, catalog.rs, assessment.rs, cleanup.rs, apps.rs, cloud.rs, settings.rs
+│   ├── dto.rs                  # DTOs with #[derive(TS)]
+│   └── commands/               # scan, catalog, analysis, system
 ├── capabilities/default.json
 └── tauri.conf.json
-src/                            # frontend Vue
-├── main.ts, App.vue
-├── router/
-├── stores/                     # scan.ts, catalog.ts, assessment.ts, cleanup.ts, apps.ts, cloud.ts, settings.ts
-├── services/ipc/               # wrappers tipados de invoke/Channel (Adapter)
-├── views/                      # ScanView, FilesView, AppsView, CloudView, HistoryView, SettingsView
-├── components/                 # FileTable, RiskBadge, SizeBar, CleanupReviewDialog, ScanProgress...
-├── composables/                # useFormatBytes, usePagination, ...
-├── i18n/pt-BR.json
-├── types/generated/            # ts-rs (não editar)
-└── **/__tests__/               # vitest
+src/                            # Vue frontend
+├── services/ipc/               # Transport port (Tauri / fake) + typed Api facade
+├── stores/                     # scan, catalog, analysis, aiSettings
+├── views/                      # ScanView, FilesView, SettingsView
+├── components/                 # FileTable, AnalysisPanel, RiskBadge, ScanProgress, ...
+├── composables/                # formatting helpers
+├── i18n/pt-BR.ts               # UI strings
+├── types/generated/            # ts-rs output (do not edit)
+└── test/                       # fakes, factories, mount helper
 scripts/make-fixture-tree.sh
-fixtures/risk-benchmark.json
-.github/
-├── workflows/ci.yml
-├── workflows/release.yml
-└── dependabot.yml
+.github/workflows/              # ci.yml, release.yml, audit.yml
 ```
 
-**Structure Decision**: workspace Cargo com três crates para isolar domínio (testável sem
-Tauri) de adapters e da camada de composição; frontend Vue na raiz conforme convenção do Tauri.
+**Structure Decision**: a three-crate Cargo workspace isolates the domain (testable without
+Tauri) from adapters and from the composition layer; the Vue frontend sits at the repository root
+following the Tauri convention.
 
-## Implementation Phases (resumo para /speckit-tasks)
+## Implementation Phases (summary for /speckit-tasks)
 
-1. **Setup**: toolchain, scaffold Tauri+Vue, workspace, lint/format, CI esqueleto.
-2. **Foundational**: tipos de domínio, ports, fakes, SQLite + migrações, `ProtectedPathPolicy`,
-   `AppError`, ts-rs, layout base da UI.
-3. **US1 (MVP)**: scanner jwalk, `ScanService`, repositórios, comandos de varredura/listagem,
-   telas de varredura e lista.
-4. **US2**: heurística, cadeia de classificação, provedores de IA + Factory, Keychain, tela de
-   configurações, badges de risco.
-5. **US3**: `ActionExecutor`, Lixeira, preview/execute, histórico.
-6. **US4**: detectores de apps/jogos, agregação, tela de aplicações.
-7. **US5**: spike de nuvem, detectores, estado, evict, tela de nuvem.
-8. **Polish**: benchmark de risco, performance, release workflow, docs.
+1. **Setup**: toolchain, Tauri + Vue scaffold, workspace, lint/format, CI skeleton.
+2. **Foundational**: domain types, ports, fakes, SQLite + migrations, `ProtectedPathPolicy`,
+   `AppError`, ts-rs, base UI layout.
+3. **US1 (MVP)**: jwalk scanner, `ScanService`, repositories, scan/listing commands, scan and
+   list screens.
+4. **US2**: heuristics, classifier chain, AI providers + factory, Keychain, settings screen, risk
+   badges (delivered in 002 and 003).
+5. **US3**: `ActionExecutor`, Trash, preview/execute, history.
+6. **US4**: application/game detectors, aggregation, applications screen.
+7. **US5**: cloud spike, detectors, sync state, evict, cloud screen.
+8. **Polish**: risk benchmark, performance, release workflow, docs.
 
 ## Complexity Tracking
 
-| Ponto de complexidade | Why Needed | Simpler Alternative Rejected Because |
+| Complexity point | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
-| 3 crates no workspace | Domínio testável sem Tauri/I/O (Princípio II/III) e didático | Crate único acopla domínio ao framework e dificulta fakes |
-| Chain of Responsibility na classificação | Garante precedência das regras protegidas, cache e fallback sem `if`s espalhados | Um único classificador com condicionais mistura responsabilidades e é difícil de testar |
-| `objc2-foundation` (FFI) para nuvem | Estado de sincronização e evict só existem via Foundation | `brctl` cobre apenas iCloud e é frágil para parse |
-| `ts-rs` + checagem de diff no CI | Evita divergência de tipos entre Rust e TS | Tipos duplicados à mão quebram silenciosamente |
+| 3 crates in the workspace | Domain testable without Tauri/I/O (Principles II/III) and instructive | A single crate couples the domain to the framework and makes fakes harder |
+| Chain of Responsibility for classification | Guarantees precedence of protected rules, cache and fallback without scattered `if`s | One classifier with conditionals mixes responsibilities and is hard to test |
+| `objc2-foundation` (FFI) for cloud (planned) | Sync state and evict only exist through Foundation | `brctl` covers only iCloud and is brittle to parse |
+| `ts-rs` + diff check in CI | Prevents type drift between Rust and TypeScript | Hand-duplicated types break silently |

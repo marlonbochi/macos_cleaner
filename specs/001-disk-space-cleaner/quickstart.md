@@ -1,11 +1,11 @@
-# Quickstart: validação da feature 001-disk-space-cleaner
+# Quickstart: validating feature 001-disk-space-cleaner
 
-## Pré-requisitos
+## Prerequisites
 
 - macOS 13+, Xcode Command Line Tools (`xcode-select --install`)
-- Rust stable via rustup (o repositório fixa a toolchain em `rust-toolchain.toml`)
+- Rust stable through rustup (the repository pins the toolchain in `rust-toolchain.toml`)
 - Node.js 22 LTS + npm
-- Opcional: Ollama (`ollama pull llama3.2`) ou chave de API do provedor de IA em nuvem
+- Optional: Ollama (`ollama pull llama3.2`) or an API key for a cloud AI provider
 
 ## Setup
 
@@ -14,52 +14,53 @@ npm ci
 cargo build --workspace
 ```
 
-## Rodar o app em desenvolvimento
+## Run the app in development
 
 ```bash
 npm run tauri dev
 ```
 
-## Rodar os quality gates localmente (mesmos do CI)
+## Run the quality gates locally (same as CI)
 
 ```bash
 npm run check          # eslint + prettier --check + vue-tsc
-npm run test:coverage  # vitest com cobertura
+npm run test:coverage  # vitest with coverage
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo llvm-cov --workspace --fail-under-lines 80
+cargo llvm-cov --workspace --ignore-filename-regex 'src-tauri/' --fail-under-lines 80
 ```
 
-## Cenários de validação manual
+## Manual validation scenarios
 
-Gere uma árvore de teste com `scripts/make-fixture-tree.sh /tmp/mc-fixture` (cria arquivos de
-500 MB/200 MB/50 MB com dados reais, 150 arquivos pequenos, hard link, symlink, bundle `.app` e
-pasta sem permissão).
+Create a test tree with `scripts/make-fixture-tree.sh /tmp/mc-fixture` (500 MB / 200 MB / 50 MB
+files with real data, 150 small files, a hard link, a symlink, an `.app` bundle and a folder
+without permissions).
 
-| # | História | Passos | Resultado esperado |
+| # | Story | Steps | Expected result |
 |---|---|---|---|
-| 1 | US1 | Varrer `/tmp/mc-fixture` com limite 100 MB | Lista: 500 MB, 200 MB e a pasta `game` (~150 MB); sem o de 50 MB; pasta sem permissão listada como inacessível; hard link contado uma vez |
-| 2 | US1 | Iniciar varredura de `~` e cancelar | Para em ≤ 2 s; resultados parciais marcados "incompleto" |
-| 3 | US1 | Fechar e reabrir o app | Último catálogo exibido com data |
-| 4 | US2 | IA = nenhuma; avaliar os 20 maiores | Todos com nível + explicação, origem "Regras locais" |
-| 5 | US2 | IA = Ollama/nuvem; avaliar | Origem "IA"; reavaliar não gera nova chamada (cache) |
-| 6 | US2 | Avaliar item em `/System` | Sempre "Perigoso", botão excluir desabilitado |
-| 7 | US3 | Selecionar 3 arquivos da fixture → Excluir | Revisão com total; após confirmar, itens na Lixeira e no Histórico |
-| 8 | US3 | Alterar um arquivo após a varredura e tentar excluí-lo | Item pulado com motivo "alterado desde a varredura" |
-| 9 | US4 | Abrir "Aplicações e Jogos" | Apps ordenados por tamanho total com composição; apps do sistema não removíveis |
-| 10 | US5 | Com iCloud Drive ativo, abrir "Nuvem" | Arquivos baixados listados por tamanho; "manter só na nuvem" libera espaço local |
-| 11 | US5 | Arquivo com upload pendente | Ação indisponível, estado "não sincronizado" |
+| 1 | US1 | Scan `/tmp/mc-fixture` with a 100 MB threshold | List: 500 MB, 200 MB and the `game` folder (~150 MB); no 50 MB file; locked folder listed as inaccessible; hard link counted once |
+| 2 | US1 | Start a scan of `~` and cancel it | Stops within 2 s; partial results flagged "incomplete" |
+| 3 | US1 | Close and reopen the app | Last catalogue shown with its date |
+| 4 | US2 | AI = none; analyse the 20 largest items | All have a level + explanation, source "local rules" |
+| 5 | US2 | AI = Ollama/cloud; analyse | Source "AI"; analysing again sends no new request (cache) |
+| 6 | US2 | Analyse an item under `/System` | Always "Dangerous", never sent to the AI |
+| 7 | US2 | Select 25 items and "Analyse selected with AI" | 2 AI requests (20 + 5); every row gets a badge |
+| 8 | US3 | Select 3 fixture files → Delete | Review with totals; after confirming, items in the Trash and in the History |
+| 9 | US3 | Change a file after the scan and try to delete it | Item skipped with reason "changed since scan" |
+| 10 | US4 | Open "Applications & Games" | Apps sorted by total size with breakdown; system apps not removable |
+| 11 | US5 | With iCloud Drive enabled, open "Cloud" | Downloaded files listed by size; "keep only in the cloud" frees local space |
+| 12 | US5 | File with a pending upload | Action unavailable, state "not synced" |
 
-### Validação por provedor de nuvem (spike R12)
+### Per cloud provider validation (spike R12)
 
-Para cada provedor instalado (iCloud, OneDrive, Google Drive, Dropbox), registrar em
-`docs/cloud-provider-matrix.md`: detecção ok?, estado ok?, evict ok?, observações.
+For each installed provider (iCloud, OneDrive, Google Drive, Dropbox), record in
+`docs/cloud-provider-matrix.md`: detection ok?, state ok?, evict ok?, notes.
 
-## Benchmark de risco (SC-006)
+## Risk benchmark (SC-006, pending)
 
 ```bash
 cargo test -p cleaner-core --test risk_benchmark
 ```
 
-Falha se algum item rotulado essencial for classificado como `Safe` ou se a acurácia < 85%.
+Fails if any item labelled essential is classified `Safe` or if accuracy is below 85%.

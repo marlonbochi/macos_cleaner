@@ -1,74 +1,105 @@
-# Contract: Classificação de risco por IA
+# Contract: AI risk analysis
 
-Contrato entre `AiClassifier` e qualquer `AiProvider` (Anthropic, OpenAI-compatível, Ollama).
+The contract between `AnalysisService` and any `AiProvider` (Claude, OpenAI, Gemini, Ollama). The
+prompt, schema and parser live in `crates/cleaner-core/src/analysis/prompt.rs`.
 
-## Entrada enviada ao modelo (somente metadados — FR-014)
+## Input sent to the model (metadata only — FR-014)
+
+Single item (one request per item, used by "Analyse"):
 
 ```json
 {
-  "locale": "pt-BR",
-  "home": "~",
-  "items": [
-    {
-      "id": "42",
-      "path": "~/Library/Developer/Xcode/DerivedData",
-      "kind": "Directory",
-      "extension": null,
-      "size_on_disk": 18234567890,
-      "file_count": 120394,
-      "modified_at": "2026-09-30",
-      "accessed_at": "2026-10-01",
-      "bundle_id": null
-    }
-  ]
+  "path": "~/Library/Developer/CoreSimulator",
+  "kind": "pasta",
+  "size_on_disk": "48.2 GB",
+  "size_on_disk_bytes": 48200000000,
+  "file_count": 210334,
+  "created": "2024-03-02",
+  "modified": "2026-09-30",
+  "last_accessed": null,
+  "largest_children": [{ "name": "Devices", "kind": "pasta", "size_on_disk": "41.0 GB" }]
 }
 ```
 
-Regras:
-- O diretório home do usuário é substituído por `~` (não enviar o nome de usuário).
-- No máximo 25 itens por requisição.
-- Conteúdo de arquivo só é incluído (campo `excerpt`, ≤ 2 KB de texto) se `ai.share_content = true`.
+Batch (used by "Analyse selected with AI"), compact JSON:
 
-## Saída esperada (JSON schema)
+```json
+{ "items": [ { "id": "12", "path": "~/Movies/a.mov", "...": "..." }, { "id": "37", "...": "..." } ] }
+```
+
+Rules:
+
+- The user's home directory is replaced by `~` (the user name is never sent).
+- Protected items are never sent (they are resolved before the AI is called).
+- Folders include their largest catalogued children: up to 15 in single requests, 5 in batches.
+- At most 20 items per batch request; larger selections are split into several requests.
+- File contents are never sent (a future opt-in may add a short text excerpt).
+
+## Expected output (JSON schema)
+
+Single item:
 
 ```json
 {
   "type": "object",
-  "required": ["assessments"],
   "additionalProperties": false,
+  "required": ["level", "category", "summary", "explanation", "recommendation", "steps", "commands"],
   "properties": {
-    "assessments": {
+    "level": { "enum": ["Safe", "Caution", "Dangerous", "Unknown"] },
+    "category": {
+      "enum": ["cache", "build-artifact", "installer", "vm-image", "media", "archive",
+               "user-document", "app-data", "app-bundle", "game", "system", "backup", "log", "other"]
+    },
+    "summary": { "type": "string" },
+    "explanation": { "type": "string" },
+    "recommendation": {
+      "enum": ["delete-safely", "use-app-or-command", "move-to-cloud-or-external", "keep", "review-manually"]
+    },
+    "steps": { "type": "array", "items": { "type": "string" } },
+    "commands": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "level", "category", "explanation"],
         "additionalProperties": false,
-        "properties": {
-          "id": { "type": "string" },
-          "level": { "enum": ["Safe", "Caution", "Dangerous", "Unknown"] },
-          "category": {
-            "enum": ["cache", "build-artifact", "installer", "vm-image", "media", "archive",
-                     "user-document", "app-data", "app-bundle", "game", "system",
-                     "backup", "log", "other"]
-          },
-          "explanation": { "type": "string", "maxLength": 280 }
-        }
+        "required": ["command", "description"],
+        "properties": { "command": { "type": "string" }, "description": { "type": "string" } }
       }
     }
   }
 }
 ```
 
-## Regras de validação no cliente
+Batch: `{ "analyses": [ { "id": "<echoed id>", ...single-item fields } ] }` with `id` required.
 
-1. IDs desconhecidos são ignorados; IDs ausentes caem para o `HeuristicClassifier`.
-2. JSON inválido ⇒ todo o lote cai para o heurístico, com log de aviso.
-3. Itens já marcados `is_protected` nunca são enviados (já resolvidos pelo elo anterior).
-4. `evaluator_version = "<provider>:<model>:prompt-v<N>"`; mudar o prompt incrementa `N`.
+## Client-side validation rules
 
-## Prompt de sistema (resumo, versionado em `cleaner-infra/src/ai/prompt.rs`)
+1. Unknown `level` or `recommendation` values reject the item; unknown categories degrade to
+   `other`; empty summary/explanation reject the item.
+2. In batches, answers are matched by `id`; unknown ids are ignored, and items missing or invalid
+   in the answer fall back to local rules individually (with the reason shown to the user).
+3. An invalid envelope (or a failed request) makes the whole batch fall back to local rules.
+4. Every field is bounded: summary ≤ 300 chars, explanation ≤ 900, ≤ 8 steps, ≤ 6 commands
+   (single-line, ≤ 400 chars).
+5. Safety floor: if local rules classify an item as `Dangerous`, an AI answer below `Caution` is
+   raised to `Dangerous`, with a note in the explanation.
+6. `evaluator_version = "<provider>:<model>:prompt-v<N>"`; changing the prompt increments `N`, which
+   invalidates cached AI assessments.
 
-Papel: especialista em macOS que avalia o risco de excluir itens para liberar espaço. Deve ser
-conservador: na dúvida, `Caution` ou `Unknown`; dados pessoais insubstituíveis (fotos, documentos,
-bibliotecas de apps, bancos de dados) são `Dangerous`; caches e artefatos recriáveis são `Safe`.
-Explicações curtas em pt-BR, dizendo o que o item é e a consequência de excluí-lo.
+## Provider wire formats
+
+| Provider | Endpoint | Structured output |
+|---|---|---|
+| Claude | `POST /v1/messages` | `output_config.format` = `json_schema`; `fallbacks: "default"` on supported models |
+| OpenAI | `POST /v1/responses` | `text.format` = strict `json_schema` |
+| Gemini | `POST /v1beta/models/{model}:generateContent` | `responseMimeType: application/json`, schema in the instructions |
+| Ollama | `POST /api/chat` | `format` = JSON schema |
+
+## System prompt (summary; versioned in `prompt.rs`)
+
+Role: a macOS expert helping someone free disk space safely. It must be conservative: when in
+doubt, `Caution` or `Unknown`; irreplaceable personal data (photos, documents, app libraries,
+databases) is `Dangerous`; caches and re-creatable artifacts are `Safe`. When an official cleaning
+route exists (an app setting or an official command such as `xcrun simctl delete unavailable`,
+`brew cleanup`, `docker system prune`), it recommends that route instead of deleting the folder by
+hand. Suggested commands must be real, safe and scoped to the analysed item. The model answers in
+Brazilian Portuguese, the app's UI language (to be revisited with the EN-US locale).

@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Analisador e Limpador de Espaço em Disco com IA
+# Specification Quality Checklist: AI-Assisted Disk Space Analyzer and Cleaner
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-14
@@ -33,3 +33,4 @@
 
 - Clarifications resolved on 2026-10-14 (FR-017: cloud + local AI; US5: only files already in
   cloud folders). All items pass; ready for `/speckit-plan`.
+- Translated to English on 2026-10-14 (repository language rule, constitution v1.1.0).

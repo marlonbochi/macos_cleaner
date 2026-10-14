@@ -1,321 +1,303 @@
-# Feature Specification: Analisador e Limpador de Espaço em Disco com IA
+# Feature Specification: AI-Assisted Disk Space Analyzer and Cleaner
 
 **Feature Branch**: `001-disk-space-cleaner`
 
 **Created**: 2026-10-14
 
-**Status**: Draft
+**Status**: In progress (US1 delivered; US2 delivered in [002](../002-ai-risk-analysis/spec.md) and [003](../003-batch-ai-analysis/spec.md))
 
-**Input**: User description: "Aplicativo desktop que varre o computador buscando e catalogando os
-arquivos mais pesados para possíveis exclusões, usando IA para avaliar a importância de cada arquivo
-para que o usuário esteja ciente dos riscos ao excluir. Lista os arquivos em ordem decrescente de
-tamanho e o usuário decide o que excluir. Também identifica jogos e aplicações instaladas cujo
-tamanho total (muitos arquivos pequenos) ocupa muito espaço. Verifica arquivos em pastas de nuvem
-(iCloud, OneDrive e afins) que ainda estão ocupando espaço local e poderiam ficar apenas na nuvem,
-deixando somente o apontador na máquina."
+**Input**: User description (translated from Portuguese): "A desktop app that scans the computer,
+finding and cataloguing the heaviest files as deletion candidates, using AI to assess how
+important each file is so the user knows the risks before deleting. It lists files in descending
+size order and the user decides what to delete. It also finds installed games and applications
+whose total size (many small files) takes a lot of space. It checks files in cloud folders
+(iCloud, OneDrive and the like) that still take local space and could live only in the cloud,
+leaving just a placeholder on the machine."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Varredura e ranking dos maiores arquivos (Priority: P1)
+### User Story 1 - Scan and rank the largest files (Priority: P1)
 
-O usuário abre o app, escolhe o que varrer (o disco inteiro ou pastas específicas) e inicia a
-varredura. Durante o processo ele vê o progresso (itens analisados, volume total encontrado) e pode
-cancelar. Ao final, vê uma lista dos arquivos ordenada do maior para o menor, com nome, local,
-tamanho, tipo e data do último acesso/modificação. Pode filtrar por tamanho mínimo, tipo e pasta,
-e abrir o local do arquivo no Finder. O catálogo fica salvo: ao reabrir o app, o último resultado
-continua disponível e uma nova varredura só reprocessa o que mudou.
+The user opens the app, chooses what to scan (the whole disk or specific folders) and starts the
+scan. While it runs they see progress (items analysed, total volume found) and can cancel. At the
+end they see the files ordered from largest to smallest, with name, location, size, kind and last
+access/modification date. They can filter by minimum size, kind and folder, and reveal the file in
+Finder. The catalogue is saved: when the app reopens the last result is still available.
 
-**Why this priority**: é o núcleo do produto; sozinho já entrega valor ("onde está meu espaço?")
-sem IA, sem exclusão e sem nuvem.
+**Why this priority**: it is the core of the product and delivers value on its own ("where is my
+space?") without AI, deletion or cloud features.
 
-**Independent Test**: varrer uma pasta de teste com arquivos de tamanhos conhecidos e verificar que
-a lista apresenta todos os arquivos acima do limite, em ordem decrescente, com tamanhos corretos.
+**Independent Test**: scan a test folder with files of known sizes and check that the list shows
+every file above the threshold, in descending order, with correct sizes.
 
 **Acceptance Scenarios**:
 
-1. **Given** uma pasta com arquivos de 5 GB, 2 GB e 50 MB e limite mínimo de 100 MB,
-   **When** o usuário varre essa pasta, **Then** a lista mostra o arquivo de 5 GB e depois o de
-   2 GB, e não mostra o de 50 MB.
-2. **Given** uma varredura em andamento, **When** o usuário clica em cancelar,
-   **Then** a varredura para em até 2 segundos e os resultados parciais permanecem visíveis
-   e marcados como incompletos.
-3. **Given** uma varredura concluída anteriormente, **When** o usuário reabre o app,
-   **Then** o último catálogo é exibido com a data da varredura, sem precisar varrer de novo.
-4. **Given** uma pasta sem permissão de leitura, **When** a varredura passa por ela,
-   **Then** a pasta é ignorada, registrada como "inacessível" e a varredura continua.
-5. **Given** o app sem a permissão de Acesso Total ao Disco, **When** o usuário inicia a
-   varredura do disco inteiro, **Then** o app explica a permissão e como concedê-la, e permite
-   continuar com acesso parcial.
+1. **Given** a folder with 5 GB, 2 GB and 50 MB files and a 100 MB threshold, **When** the user
+   scans it, **Then** the list shows the 5 GB file then the 2 GB file, and not the 50 MB one.
+2. **Given** a running scan, **When** the user cancels, **Then** the scan stops within 2 seconds
+   and partial results stay visible, flagged as incomplete.
+3. **Given** a previously completed scan, **When** the user reopens the app, **Then** the last
+   catalogue is shown with its scan date, without scanning again.
+4. **Given** a folder without read permission, **When** the scan reaches it, **Then** it is
+   skipped, recorded as "inaccessible", and the scan continues.
+5. **Given** the app lacks Full Disk Access, **When** the user scans the whole disk, **Then** the
+   app explains the permission, which app must be granted it, and lets the user continue with
+   partial access.
 
 ---
 
-### User Story 2 - Avaliação de risco assistida por IA (Priority: P2)
+### User Story 2 - AI-assisted risk assessment (Priority: P2)
 
-Para cada item da lista, o usuário vê um nível de risco de exclusão (Seguro, Atenção, Perigoso,
-Desconhecido) e uma explicação curta do que o arquivo provavelmente é e por que ele tem esse risco
-(ex.: "Cache do Xcode, pode ser recriado — Seguro"; "Banco de dados da biblioteca do Fotos —
-Perigoso"). A avaliação acontece sob demanda ou em lote para os maiores itens. Sem IA disponível,
-o app ainda mostra uma classificação básica por regras locais, identificada como tal.
+For each item the user sees a deletion risk level (Safe, Caution, Dangerous, Unknown) and a short
+explanation of what the item probably is and why it has that risk (e.g. "Xcode cache, can be
+recreated — Safe"; "Photos library database — Dangerous"). Assessment happens on demand or in
+batches. Without AI the app still shows a basic classification from local rules, labelled as such.
 
-**Why this priority**: é o diferencial do produto — transforma uma lista de tamanhos em uma decisão
-informada e reduz exclusões acidentais.
+**Why this priority**: it is the product's differentiator — it turns a list of sizes into an
+informed decision and reduces accidental deletions.
 
-**Independent Test**: com um catálogo de exemplo contendo caches, documentos pessoais e arquivos de
-sistema conhecidos, solicitar a avaliação e verificar que cada item recebe nível de risco e
-justificativa, e que itens conhecidos de sistema nunca aparecem como "Seguro".
+**Independent Test**: with a sample catalogue containing caches, personal documents and known
+system files, request the assessment and check that every item gets a level and an explanation,
+and that known system items are never "Safe".
 
 **Acceptance Scenarios**:
 
-1. **Given** um item catalogado, **When** o usuário pede a avaliação, **Then** o item exibe nível
-   de risco, explicação em linguagem simples e a origem da avaliação (IA ou regras locais).
-2. **Given** um item já avaliado e não modificado, **When** o usuário volta a vê-lo,
-   **Then** a avaliação anterior é reaproveitada sem nova consulta.
-3. **Given** a IA indisponível ou não configurada, **When** o usuário pede avaliação,
-   **Then** a classificação por regras locais é usada e o usuário é avisado.
-4. **Given** um item dentro de uma pasta protegida do sistema, **When** qualquer avaliação ocorre,
-   **Then** o risco é sempre "Perigoso" e o item não pode ser excluído pelo app.
-5. **Given** a configuração padrão, **When** uma avaliação por IA é feita, **Then** apenas
-   metadados do arquivo (nome, caminho, extensão, tamanho, datas, tipo) são compartilhados,
-   nunca o conteúdo.
+1. **Given** a catalogued item, **When** the user requests an assessment, **Then** the item shows
+   a risk level, a plain-language explanation and the assessment source (AI or local rules).
+2. **Given** an item already assessed and unchanged, **When** the user sees it again, **Then** the
+   previous assessment is reused without a new request.
+3. **Given** AI unavailable or not configured, **When** the user requests an assessment, **Then**
+   local rules are used and the user is told so.
+4. **Given** an item in a protected system location, **When** any assessment runs, **Then** the
+   risk is always "Dangerous" and the app cannot delete it.
+5. **Given** the default configuration, **When** an AI assessment runs, **Then** only file
+   metadata (name, path, extension, size, dates, kind) is shared, never contents.
 
 ---
 
-### User Story 3 - Exclusão segura e consciente (Priority: P3)
+### User Story 3 - Safe, informed deletion (Priority: P3)
 
-O usuário seleciona um ou mais itens e pede para excluí-los. O app mostra uma tela de revisão com
-o total a ser liberado, a quantidade de itens e destaca os itens de risco "Atenção" ou "Perigoso",
-exigindo confirmação adicional para eles. Os itens vão para a Lixeira, de onde podem ser
-recuperados. Um histórico mostra tudo o que foi removido pelo app.
+The user selects one or more items and asks to delete them. The app shows a review screen with
+the space to be freed and the item count, highlighting "Caution" or "Dangerous" items, which
+require an extra confirmation. Items go to the Trash, where they can be restored. A history shows
+everything the app removed.
 
-**Why this priority**: concretiza a liberação de espaço; depende das histórias 1 e 2 para ser
-segura e informada.
+**Why this priority**: it actually frees space; it depends on stories 1 and 2 to be safe and
+informed.
 
-**Independent Test**: selecionar arquivos de uma pasta de teste, confirmar a exclusão e verificar
-que estão na Lixeira, que o catálogo foi atualizado e que o histórico registra a ação.
+**Independent Test**: select files from a test folder, confirm the deletion and check that they
+are in the Trash, the catalogue was updated and the history records the action.
 
 **Acceptance Scenarios**:
 
-1. **Given** 3 itens selecionados somando 4 GB, **When** o usuário pede a exclusão,
-   **Then** vê uma revisão com "3 itens — 4 GB" antes de confirmar.
-2. **Given** a revisão confirmada, **When** a exclusão termina, **Then** os itens estão na
-   Lixeira, saem da lista e o espaço liberado é exibido.
-3. **Given** um item "Perigoso" na seleção, **When** o usuário revisa, **Then** o item fica
-   destacado e só é incluído após uma confirmação específica para ele.
-4. **Given** um item que mudou ou foi removido desde a varredura, **When** a exclusão é
-   executada, **Then** esse item é pulado e o usuário é informado.
-5. **Given** exclusões realizadas, **When** o usuário abre o histórico, **Then** vê data,
-   caminho, tamanho e resultado de cada item.
+1. **Given** 3 selected items totalling 4 GB, **When** the user asks to delete, **Then** they see a
+   review with "3 items — 4 GB" before confirming.
+2. **Given** a confirmed review, **When** deletion finishes, **Then** the items are in the Trash,
+   leave the list, and the freed space is shown.
+3. **Given** a "Dangerous" item in the selection, **When** the user reviews, **Then** the item is
+   highlighted and only included after a confirmation specific to it.
+4. **Given** an item that changed or disappeared since the scan, **When** deletion runs, **Then**
+   it is skipped and the user is told.
+5. **Given** past deletions, **When** the user opens the history, **Then** they see date, path,
+   size and result of each item.
 
 ---
 
-### User Story 4 - Aplicações e jogos que mais ocupam espaço (Priority: P4)
+### User Story 4 - Applications and games that take the most space (Priority: P4)
 
-O usuário abre a visão "Aplicações e Jogos" e vê cada aplicação ou jogo instalado com seu tamanho
-total real — somando o pacote do app e os dados associados (suporte, caches, contêineres,
-bibliotecas de jogos de lojas como Steam, Epic, etc.) — ordenado do maior para o menor, com data
-do último uso quando disponível. Pode expandir para ver a composição do tamanho e recebe a
-avaliação de risco/importância da IA (ex.: "não usado há 14 meses").
+The user opens "Applications & Games" and sees each installed application or game with its real
+total size — the app bundle plus associated data (support files, caches, containers, game store
+libraries such as Steam or Epic) — largest first, with last-used date when available. They can
+expand an item to see the size breakdown and get the AI risk/importance assessment (e.g. "not
+used for 14 months").
 
-**Why this priority**: resolve o caso em que milhares de arquivos pequenos não aparecem no ranking
-de arquivos individuais, mas somados ocupam dezenas de GB.
+**Why this priority**: it covers the case where thousands of small files never show up in the
+per-file ranking but together take tens of GB.
 
-**Independent Test**: em um ambiente com aplicações de teste com tamanhos conhecidos de pacote e
-dados, verificar que o total agregado e a composição batem com os valores esperados.
+**Independent Test**: with test applications of known bundle and data sizes, check that the
+aggregated total and the breakdown match.
 
 **Acceptance Scenarios**:
 
-1. **Given** um app com pacote de 1 GB e 3 GB de dados associados, **When** a visão é aberta,
-   **Then** o app aparece com 4 GB e a composição mostra 1 GB + 3 GB.
-2. **Given** um jogo instalado por uma loja de jogos conhecida, **When** a visão é aberta,
-   **Then** o jogo aparece identificado como jogo, com o tamanho total da sua pasta de instalação.
-3. **Given** um aplicativo do sistema, **When** listado, **Then** é marcado como do sistema e
-   não pode ser removido pelo app.
-4. **Given** um app selecionado para remoção, **When** o usuário confirma, **Then** o pacote e
-   os dados associados selecionados vão para a Lixeira, seguindo o fluxo da história 3.
+1. **Given** an app with a 1 GB bundle and 3 GB of associated data, **When** the view opens,
+   **Then** the app shows 4 GB and the breakdown shows 1 GB + 3 GB.
+2. **Given** a game installed through a known game store, **When** the view opens, **Then** the
+   game is identified as a game, with the total size of its install folder.
+3. **Given** a system application, **When** listed, **Then** it is marked as system and cannot be
+   removed by the app.
+4. **Given** an app selected for removal, **When** the user confirms, **Then** the bundle and the
+   selected associated data go to the Trash through the story 3 flow.
 
 ---
 
-### User Story 5 - Liberar espaço de arquivos já sincronizados com a nuvem (Priority: P5)
+### User Story 5 - Free space from files already synced to the cloud (Priority: P5)
 
-O app detecta as pastas de serviços de nuvem presentes (iCloud Drive, OneDrive, Google Drive,
-Dropbox) e lista os arquivos que estão baixados localmente e já sincronizados, ordenados por
-tamanho. O usuário pode pedir para "manter somente na nuvem", liberando o espaço local e deixando
-o apontador (o arquivo continua visível e é baixado sob demanda).
+The app detects the cloud service folders on the machine (iCloud Drive, OneDrive, Google Drive,
+Dropbox) and lists files that are downloaded locally and already synced, largest first. The user
+can choose "keep only in the cloud", freeing local space while leaving a placeholder (the file
+stays visible and downloads on demand).
 
-**Why this priority**: libera espaço sem perder nada, mas depende dos serviços de nuvem do
-usuário e de suas regras de sincronização — por isso vem depois do núcleo.
+**Why this priority**: it frees space without losing anything, but depends on the user's cloud
+services and their sync rules — so it comes after the core.
 
-**Independent Test**: com uma pasta de nuvem contendo arquivos sincronizados e baixados, solicitar
-"manter somente na nuvem" e verificar que o espaço local é liberado e o arquivo continua listado
-como disponível na nuvem.
+**Independent Test**: with a cloud folder containing synced, downloaded files, request "keep only
+in the cloud" and check that local space is freed and the file is still listed as available in the
+cloud.
 
 **Acceptance Scenarios**:
 
-1. **Given** iCloud Drive com 10 GB de arquivos baixados e sincronizados, **When** o usuário abre
-   a visão de nuvem, **Then** vê esses arquivos, o provedor e o total de 10 GB liberável.
-2. **Given** um arquivo ainda não sincronizado (upload pendente ou com erro), **When** listado,
-   **Then** ele aparece como "não sincronizado" e a ação "manter somente na nuvem" fica
-   indisponível.
-3. **Given** arquivos selecionados, **When** o usuário confirma "manter somente na nuvem",
-   **Then** o espaço local é liberado e os arquivos continuam acessíveis pelo sistema.
-4. **Given** nenhum serviço de nuvem instalado, **When** a visão é aberta, **Then** o app informa
-   que nenhum provedor foi detectado.
-5. **Given** arquivos grandes fora das pastas de nuvem, **When** a visão é aberta,
-   **Then** eles não aparecem na visão de nuvem; o app atua somente sobre arquivos que já estão
-   em pastas de nuvem e não move arquivos para dentro delas.
+1. **Given** iCloud Drive with 10 GB of downloaded, synced files, **When** the user opens the cloud
+   view, **Then** they see those files, the provider and 10 GB reclaimable.
+2. **Given** a file not yet synced (pending upload or error), **When** listed, **Then** it shows as
+   "not synced" and "keep only in the cloud" is unavailable.
+3. **Given** selected files, **When** the user confirms "keep only in the cloud", **Then** local
+   space is freed and the files remain accessible through the system.
+4. **Given** no cloud service installed, **When** the view opens, **Then** the app says no
+   provider was detected.
+5. **Given** large files outside cloud folders, **When** the view opens, **Then** they do not
+   appear there; the app only acts on files already in cloud folders and never moves files into
+   them.
 
 ---
 
 ### Edge Cases
 
-- Discos com milhões de arquivos: a interface continua navegável e a lista é paginada.
-- Hard links e clones APFS: o mesmo conteúdo não pode ser contado duas vezes no total liberável;
-  o app avisa que excluir um clone pode liberar menos espaço que o tamanho aparente.
-- Links simbólicos e pontos de montagem: não são seguidos; volumes externos e de rede só são
-  varridos se o usuário os escolher explicitamente.
-- Arquivos em uso ou bloqueados no momento da exclusão: são pulados e reportados.
-- Arquivos que somem ou mudam entre a varredura e a ação: são revalidados antes de qualquer ação.
-- Snapshots locais do Time Machine e "espaço purgável": o app explica que o espaço livre pode não
-  aumentar imediatamente.
-- Disco quase cheio durante a varredura: o catálogo não pode corromper; a varredura falha com
-  mensagem clara.
-- IA retornando resposta inválida, lenta ou com erro: a avaliação cai para as regras locais.
-- Arquivos do próprio app (catálogo, configurações): nunca aparecem como candidatos à exclusão.
-- Nomes de arquivo com caracteres especiais, Unicode ou caminhos muito longos: exibidos e tratados
-  corretamente.
+- Disks with millions of files: the interface stays usable and the list is paginated.
+- Hard links and APFS clones: the same content must not be counted twice in the reclaimable total;
+  the app warns that deleting a clone may free less space than its apparent size.
+- Symbolic links and mount points: not followed; external and network volumes are scanned only
+  when explicitly chosen.
+- Files in use or locked at deletion time: skipped and reported.
+- Files that disappear or change between scan and action: re-validated before any action.
+- Local Time Machine snapshots and "purgeable" space: the app explains that free space may not grow
+  immediately.
+- Disk almost full during the scan: the catalogue must not get corrupted; the scan fails with a
+  clear message.
+- AI returning invalid, slow or failed responses: the assessment falls back to local rules.
+- The app's own files (catalogue, settings): never shown as deletion candidates.
+- File names with special characters, Unicode or very long paths: displayed and handled correctly.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-**Varredura e catálogo**
+**Scanning and catalogue**
 
-- **FR-001**: O sistema MUST permitir varrer o disco de inicialização inteiro ou pastas/volumes
-  escolhidos pelo usuário.
-- **FR-002**: O sistema MUST catalogar, para cada arquivo acima do limite mínimo, caminho, nome,
-  tamanho em disco, tipo, datas de criação/modificação/último acesso e a varredura de origem.
-- **FR-003**: O sistema MUST calcular o tamanho agregado de pastas para permitir navegação por
-  pastas que mais ocupam espaço.
-- **FR-004**: O sistema MUST exibir os itens em ordem decrescente de tamanho, com filtros por
-  tamanho mínimo (padrão 100 MB, configurável), tipo de arquivo, pasta e nível de risco.
-- **FR-005**: O sistema MUST mostrar progresso da varredura e permitir cancelá-la.
-- **FR-006**: O sistema MUST persistir o catálogo localmente e exibi-lo ao reabrir o app.
-- **FR-007**: O sistema MUST reprocessar em novas varreduras somente o que mudou desde a anterior.
-- **FR-008**: O sistema MUST ignorar e registrar locais inacessíveis sem interromper a varredura.
-- **FR-009**: O sistema MUST NOT seguir links simbólicos nem entrar em outros volumes não
-  escolhidos explicitamente.
-- **FR-010**: O sistema MUST orientar o usuário a conceder Acesso Total ao Disco quando
-  necessário, permitindo uso parcial sem ela.
-- **FR-011**: O usuário MUST poder revelar qualquer item no Finder.
+- **FR-001**: The system MUST scan the startup disk or folders/volumes chosen by the user.
+- **FR-002**: The system MUST catalogue, for each file above the minimum size, path, name, size on
+  disk, kind, creation/modification/last-access dates and the source scan.
+- **FR-003**: The system MUST compute aggregated folder sizes so the user can browse the folders
+  that take the most space.
+- **FR-004**: The system MUST show items in descending size order, filterable by minimum size
+  (default 100 MB, configurable), file kind, folder and risk level.
+- **FR-005**: The system MUST show scan progress and allow cancelling it.
+- **FR-006**: The system MUST persist the catalogue locally and show it when the app reopens.
+- **FR-007**: The system MUST avoid reprocessing unchanged items on later scans.
+- **FR-008**: The system MUST skip and record inaccessible locations without stopping the scan.
+- **FR-009**: The system MUST NOT follow symbolic links nor enter volumes not explicitly chosen.
+- **FR-010**: The system MUST guide the user to grant Full Disk Access when needed (naming the app
+  macOS expects), allowing partial use without it.
+- **FR-011**: The user MUST be able to reveal any item in Finder.
 
-**Avaliação de risco**
+**Risk assessment**
 
-- **FR-012**: O sistema MUST atribuir a cada item avaliado um nível de risco (Seguro, Atenção,
-  Perigoso, Desconhecido), uma explicação em linguagem simples e a origem (IA ou regras locais).
-- **FR-013**: O sistema MUST possuir classificação por regras locais que funcione sem conexão e
-  sem IA configurada.
-- **FR-014**: Por padrão, o sistema MUST compartilhar com a IA apenas metadados dos arquivos;
-  compartilhar conteúdo exige ativação explícita pelo usuário.
-- **FR-015**: O sistema MUST armazenar avaliações e reaproveitá-las enquanto o item não mudar.
-- **FR-016**: O sistema MUST classificar como "Perigoso" e bloquear para exclusão itens em locais
-  protegidos do sistema, independentemente da avaliação da IA.
-- **FR-017**: O usuário MUST poder configurar o provedor de IA e suas credenciais, que devem ser
-  guardadas de forma segura pelo sistema operacional. O usuário MUST poder escolher entre um
-  provedor de IA na nuvem (usando a própria chave de acesso) e um modelo de IA executado
-  localmente na máquina, ou nenhum (somente regras locais).
+- **FR-012**: The system MUST give each assessed item a risk level (Safe, Caution, Dangerous,
+  Unknown), a plain-language explanation and its source (AI or local rules).
+- **FR-013**: The system MUST have local rules that work offline and without AI configured.
+- **FR-014**: By default the system MUST share only file metadata with the AI; sharing contents
+  requires an explicit user opt-in.
+- **FR-015**: The system MUST store assessments and reuse them while the item is unchanged.
+- **FR-016**: The system MUST classify as "Dangerous", and block from deletion, items in protected
+  system locations regardless of the AI assessment.
+- **FR-017**: The user MUST be able to configure the AI provider and its credentials, stored
+  securely by the operating system. The user MUST be able to choose a cloud AI provider (with
+  their own key), a local model running on the machine, or none (local rules only).
 
-**Exclusão**
+**Deletion**
 
-- **FR-018**: O sistema MUST excluir itens somente após uma tela de revisão com total, quantidade
-  e destaque dos itens de risco, e confirmação do usuário.
-- **FR-019**: Itens "Atenção"/"Perigoso" desbloqueados MUST exigir confirmação individual.
-- **FR-020**: O sistema MUST mover itens excluídos para a Lixeira por padrão.
-- **FR-021**: O sistema MUST revalidar cada item (existência, tamanho, data) imediatamente antes
-  da ação e pular itens alterados, informando o usuário.
-- **FR-022**: O sistema MUST manter um histórico local de todas as ações destrutivas e de
-  liberação de espaço (data, caminho, tamanho, ação, resultado).
-- **FR-023**: O sistema MUST NOT pré-selecionar itens de risco "Atenção" ou "Perigoso".
+- **FR-018**: The system MUST delete items only after a review screen with total, count and
+  highlighted risky items, and the user's confirmation.
+- **FR-019**: Unblocked "Caution"/"Dangerous" items MUST require an individual confirmation.
+- **FR-020**: The system MUST move deleted items to the Trash by default.
+- **FR-021**: The system MUST re-validate each item (existence, size, date) right before acting and
+  skip changed items, informing the user.
+- **FR-022**: The system MUST keep a local history of every destructive or space-freeing action
+  (date, path, size, action, result).
+- **FR-023**: The system MUST NOT pre-select "Caution" or "Dangerous" items.
 
-**Aplicações e jogos**
+**Applications and games**
 
-- **FR-024**: O sistema MUST listar aplicações instaladas com tamanho total = pacote + dados
-  associados (suporte, caches, contêineres, preferências, logs).
-- **FR-025**: O sistema MUST identificar jogos de lojas conhecidas (ex.: Steam, Epic Games,
-  GOG, Battle.net, App Store) e calcular o tamanho total de cada jogo.
-- **FR-026**: O sistema MUST mostrar a composição do tamanho de cada aplicação/jogo e a data do
-  último uso quando disponível.
-- **FR-027**: O sistema MUST marcar aplicações do sistema como não removíveis.
+- **FR-024**: The system MUST list installed applications with total size = bundle + associated
+  data (support files, caches, containers, preferences, logs).
+- **FR-025**: The system MUST identify games from known stores (e.g. Steam, Epic Games, GOG,
+  Battle.net, App Store) and compute each game's total size.
+- **FR-026**: The system MUST show each application/game's size breakdown and last-used date when
+  available.
+- **FR-027**: The system MUST mark system applications as non-removable.
 
-**Nuvem**
+**Cloud**
 
-- **FR-028**: O sistema MUST detectar pastas dos provedores iCloud Drive, OneDrive, Google Drive
-  e Dropbox presentes na máquina.
-- **FR-029**: O sistema MUST listar arquivos baixados localmente nessas pastas com seu estado de
-  sincronização (sincronizado, pendente, erro, somente na nuvem).
-- **FR-030**: O sistema MUST permitir "manter somente na nuvem" apenas para arquivos totalmente
-  sincronizados, usando o mecanismo oficial de cada provedor.
-- **FR-031**: O sistema MUST exibir o total liberável por provedor.
+- **FR-028**: The system MUST detect iCloud Drive, OneDrive, Google Drive and Dropbox folders on
+  the machine.
+- **FR-029**: The system MUST list locally downloaded files in those folders with their sync state
+  (synced, pending, error, cloud-only).
+- **FR-030**: The system MUST allow "keep only in the cloud" only for fully synced files, using
+  each provider's official mechanism.
+- **FR-031**: The system MUST show the reclaimable total per provider.
 
 ### Key Entities
 
-- **Scan (Varredura)**: uma execução de varredura; raízes escolhidas, início/fim, estado
-  (em andamento, concluída, cancelada, falhou), totais e itens inacessíveis.
-- **FileEntry (Item de arquivo)**: arquivo ou pasta catalogado; caminho, tamanho em disco,
-  tamanho aparente, tipo, datas, identificador de conteúdo para detectar hard links, varredura.
-- **RiskAssessment (Avaliação de risco)**: nível, explicação, origem (IA/regras), versão do
-  avaliador, data; vinculada a um FileEntry e invalidada quando ele muda.
-- **InstalledApp (Aplicação/Jogo)**: nome, identificador, tipo (app, jogo, sistema), loja de
-  origem, último uso, componentes (pacote + dados associados) e tamanho total.
-- **CloudLocation (Local de nuvem)**: provedor, pasta raiz, arquivos associados e seus estados
-  de sincronização.
-- **ActionRecord (Registro de ação)**: ação (lixeira, exclusão permanente, manter na nuvem),
-  item, tamanho, data, resultado e motivo de falha.
-- **Settings (Configurações)**: limite mínimo, raízes padrão, provedor de IA, opção de
-  compartilhar conteúdo, exclusões de caminhos definidas pelo usuário.
+- **Scan**: one scan run; chosen roots, start/end, status (running, completed, cancelled, failed),
+  totals and inaccessible items.
+- **FileEntry**: a catalogued file or folder; path, size on disk, apparent size, kind, dates,
+  content identity to detect hard links, scan.
+- **RiskAssessment**: level, explanation, recommendation, steps, suggested commands, source
+  (AI/rules), evaluator version, date; tied to a FileEntry state and invalidated when it changes.
+- **InstalledApp**: name, identifier, kind (app, game, system), source store, last use, components
+  (bundle + associated data) and total size.
+- **CloudLocation**: provider, root folder, associated files and their sync states.
+- **ActionRecord**: action (trash, permanent delete, keep in cloud), item, size, date, result and
+  failure reason.
+- **Settings**: minimum size, default roots, AI provider, content-sharing option, user-defined
+  excluded paths.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Uma varredura completa de um disco com 1 milhão de arquivos termina em menos de
-  5 minutos em um Mac com SSD, e a interface responde a interações em menos de 200 ms durante a
-  varredura.
-- **SC-002**: Após a varredura, o usuário identifica os 20 maiores itens do disco em menos de
-  30 segundos.
-- **SC-003**: Uma re-varredura sem mudanças significativas leva menos de 25% do tempo da
-  varredura completa.
-- **SC-004**: 0 itens de locais protegidos do sistema podem ser excluídos pelo app (verificado
-  por testes automatizados).
-- **SC-005**: 100% dos itens removidos pelo app são recuperáveis pela Lixeira no fluxo padrão.
-- **SC-006**: Em um conjunto de referência de 200 arquivos rotulados, nenhum item rotulado como
-  essencial é classificado como "Seguro", e pelo menos 85% dos itens recebem o nível esperado.
-- **SC-007**: 90% dos usuários de teste conseguem liberar pelo menos 5 GB na primeira sessão sem
-  consultar ajuda.
-- **SC-008**: O total de espaço exibido como liberável difere em no máximo 5% do espaço
-  efetivamente liberado (descontando snapshots locais).
+- **SC-001**: A full scan of a disk with 1 million files finishes in under 5 minutes on an
+  SSD-equipped Mac, and the interface responds to interactions in under 200 ms during the scan.
+- **SC-002**: After scanning, the user identifies the 20 largest items on the disk in under
+  30 seconds.
+- **SC-003**: Re-assessing an unchanged catalogue sends no new AI requests.
+- **SC-004**: 0 items in protected system locations can be deleted by the app (verified by
+  automated tests).
+- **SC-005**: 100% of items removed by the app are recoverable from the Trash in the default flow.
+- **SC-006**: On a reference set of 200 labelled files, no item labelled essential is classified
+  "Safe", and at least 85% of items get the expected level.
+- **SC-007**: 90% of test users free at least 5 GB in their first session without help.
+- **SC-008**: The space shown as reclaimable differs by at most 5% from the space actually freed
+  (excluding local snapshots).
 
 ## Assumptions
 
-- Usuários são pessoas usando macOS 13 ou superior em seu próprio computador, com conta de
-  administrador ou usuário padrão; não há multiusuário nem sincronização entre máquinas.
-- O app é distribuído fora da Mac App Store (necessário para Acesso Total ao Disco e varredura
-  ampla).
-- Escopo padrão de varredura: pasta do usuário e `/Applications`; disco inteiro é opcional.
-- Limite mínimo padrão para listar arquivos individuais: 100 MB (configurável).
-- O uso de IA pode ter custo para o usuário (chave própria); o app não fornece créditos de IA.
-- Exclusão permanente fica fora do escopo da v1 (somente Lixeira); pode ser adicionada depois
-  conforme a constituição.
-- Detecção de jogos cobre lojas populares no macOS; lojas desconhecidas aparecem como apps
-  comuns.
-- Interface em português do Brasil na v1, preparada para internacionalização.
-- Não-objetivos da v1: Windows/Linux, limpeza automática agendada, detecção de arquivos
-  duplicados por conteúdo.
+- Users run macOS 13 or later on their own computer, with an administrator or standard account;
+  no multi-user or cross-machine sync.
+- The app is distributed outside the Mac App Store (needed for Full Disk Access and broad scans).
+- Default scan scope: the home folder and `/Applications`; the whole disk is optional.
+- Default minimum size for listing individual files: 100 MB (configurable).
+- AI usage may cost the user money (their own key); the app does not provide AI credits.
+- Permanent deletion is out of scope for v1 (Trash only); it may be added later per the
+  constitution.
+- Game detection covers popular macOS stores; unknown stores show up as regular apps.
+- The UI is in Brazilian Portuguese in v1, ready for internationalisation.
+- Non-goals for v1: Windows/Linux, scheduled automatic cleaning, content-based duplicate detection.
 
 ## Clarifications
 
 ### Session 2026-10-14
 
-- Q: A IA deve ser um serviço na nuvem, um modelo local ou ambos? → A: Ambos, com escolha nas
-  configurações (além da opção "somente regras locais").
-- Q: O offload para nuvem deve sugerir mover arquivos locais para pastas de nuvem? → A: Não; atua
-  somente sobre arquivos que já estão em pastas de nuvem.
+- Q: Should the AI be a cloud service, a local model, or both? → A: Both, chosen in the settings
+  (plus a "local rules only" option).
+- Q: Should the cloud offload suggest moving local files into cloud folders? → A: No; it only acts
+  on files already in cloud folders.

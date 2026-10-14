@@ -1,170 +1,178 @@
-# Data Model: Analisador e Limpador de Espaço em Disco com IA
+# Data Model: AI-Assisted Disk Space Analyzer and Cleaner
 
 **Feature**: `001-disk-space-cleaner` | **Date**: 2026-10-14
 
-Entidades de domínio (structs em `cleaner-core::domain`) e seu mapeamento em SQLite
-(`cleaner-infra::db`). Tamanhos em bytes (`u64` no Rust, `INTEGER` no SQLite); datas em Unix
-epoch segundos UTC.
+Domain entities (structs in `cleaner-core::domain`) and their SQLite mapping
+(`cleaner-infra::db`). Sizes in bytes (`u64` in Rust, `INTEGER` in SQLite, stored bit-for-bit so
+values above `i64::MAX` round-trip); dates as Unix epoch seconds, UTC.
 
 ## Value Objects
 
-| Tipo | Descrição | Regras |
+| Type | Description | Rules |
 |---|---|---|
-| `ByteSize(u64)` | Tamanho em bytes | Formatação humana (KB/MB/GB, base 1000 como o Finder) |
-| `RiskLevel` | `Safe`, `Caution`, `Dangerous`, `Unknown` | Ordenável; `Dangerous` nunca é pré-selecionável |
+| `ByteSize(u64)` | Size in bytes | Human formatting in base 1000, like Finder; saturating addition |
+| `RiskLevel` | `Safe`, `Unknown`, `Caution`, `Dangerous` | Ordered by severity; `Caution`/`Dangerous` require confirmation and are never pre-selected |
+| `RiskCategory` | `cache`, `build-artifact`, `installer`, `vm-image`, `media`, `archive`, `user-document`, `app-data`, `app-bundle`, `game`, `system`, `backup`, `log`, `other` | Unknown values degrade to `other` |
+| `Recommendation` | `delete-safely`, `use-app-or-command`, `move-to-cloud-or-external`, `keep`, `review-manually` | — |
+| `SuggestedCommand` | `{ command, description }` | Displayed and copyable only; never executed by the app |
 | `AssessmentSource` | `ProtectedRule`, `Heuristic`, `Ai { provider, model }` | — |
-| `FileKind` | `File`, `Directory`, `AppBundle`, `Package` | Bundles/pacotes são tratados como unidade |
-| `FileFingerprint` | `(size_on_disk, mtime, inode)` | Igualdade invalida/revalida avaliações e ações |
-| `ScanRoot` | Caminho absoluto + `cross_volumes: bool` | Caminho deve existir e ser absoluto |
+| `FileKind` | `File`, `Directory`, `Package` | Packages (`.app`, `.photoslibrary`, ...) are treated as one unit |
+| `FileFingerprint` | `(size_on_disk, mtime, inode)` | Equality validates cached assessments and pending actions |
+| `AiProviderKind` | `anthropic`, `openai`, `gemini`, `ollama` | Each has a default model and official base URL |
 
 ## Entities
 
 ### Scan
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | id | i64 PK | — |
-| roots | JSON (`Vec<ScanRoot>`) | ≥ 1 raiz |
-| min_file_size | u64 | padrão 100 MB |
-| status | enum | ver transições |
-| started_at / finished_at | i64 / i64? | `finished_at` só em estado terminal |
-| files_seen / bytes_seen | u64 | monotônicos |
+| roots | JSON (`Vec<PathBuf>`) | ≥ 1 absolute root; nested/duplicate roots collapsed |
+| min_file_size | u64 | default 100 MB |
+| status | enum | see transitions |
+| started_at / finished_at | i64 / i64? | `finished_at` only in terminal states |
+| files_seen / bytes_seen | u64 | monotonic |
 | inaccessible_count | u64 | — |
-| error | text? | só em `Failed` |
+| error | text? | only when `Failed` |
 
-**Transições**:
+**Transitions**:
 
 ```text
-Pending ──start──▶ Running ──complete──▶ Completed
-                      │──cancel────────▶ Cancelled   (resultados parciais visíveis, flag incompleto)
-                      └──fatal error───▶ Failed
+Running ──complete──▶ Completed
+   │──cancel────────▶ Cancelled   (partial results visible, flagged incomplete)
+   └──fatal error───▶ Failed
 ```
 
-Só pode existir uma `Scan` em `Running` por vez. A UI exibe a última `Completed` ou `Cancelled`.
+Only one `Scan` may be `Running` at a time; scans left `Running` by a crash are marked `Failed`
+at startup. The UI shows the latest `Completed` or `Cancelled` scan. A completed scan replaces
+older catalogues; a cancelled one does not.
 
 ### FileEntry
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | id | i64 PK | — |
-| scan_id | FK → Scan | — |
-| path | text UNIQUE por scan | absoluto, NFC normalizado para exibição, bytes originais preservados |
-| parent_path | text | índice para navegação por pasta |
-| name / extension | text | — |
+| scan_id | FK → Scan (cascade) | — |
+| path | text, UNIQUE per scan | absolute, UTF-8 (APFS) |
+| parent_path | text | index for folder browsing |
+| name / extension | text | extension lower-cased; none for directories |
 | kind | `FileKind` | — |
-| size_on_disk | u64 | `st_blocks * 512`; agregado para diretórios |
-| apparent_size | u64 | `len()`; agregado para diretórios |
-| file_count | u64 | 1 para arquivos; soma para diretórios |
+| size_on_disk | u64 | `st_blocks * 512`; aggregated for directories |
+| apparent_size | u64 | `len()`; aggregated for directories |
+| file_count | u64 | 1 for files; total below a directory |
 | created_at / modified_at / accessed_at | i64? | — |
-| inode / device | u64 | dedup de hard links |
-| is_hardlink_dup | bool | `true` → não soma no total liberável |
-| is_protected | bool | resultado da `ProtectedPathPolicy` |
-| cloud_location_id | FK? → CloudLocation | se dentro de pasta de nuvem |
+| inode / device | u64 | hard-link de-duplication |
+| is_hardlink_dup | bool | reserved; duplicates are currently not persisted |
+| is_protected | bool | result of `ProtectedPathPolicy` |
 
-Índices: `(scan_id, size_on_disk DESC)`, `(scan_id, parent_path)`, `(scan_id, extension)`.
+Indexes: `(scan_id, size_on_disk DESC)`, `(scan_id, parent_path)`, `(scan_id, extension)`.
 
-Persistência: arquivos ≥ `min_file_size` e diretórios cujo agregado ≥ `min_file_size`.
+Persisted: files ≥ `min_file_size` and directories whose total ≥ `min_file_size`.
 
 ### RiskAssessment
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | id | i64 PK | — |
-| path | text | chave lógica junto do fingerprint |
-| fingerprint | `FileFingerprint` | se o item mudar, a avaliação é inválida |
-| level | `RiskLevel` | `ProtectedRule` ⇒ sempre `Dangerous` |
-| category | text | ex.: `cache`, `user-document`, `system`, `app-data`, `media`, `installer`, `vm-image` |
-| explanation | text | ≤ 280 caracteres, pt-BR |
-| source | `AssessmentSource` | — |
-| evaluator_version | text | muda quando prompt/regras mudam ⇒ reavaliação |
+| path | text | logical key together with the fingerprint |
+| size_on_disk / modified_at / inode | fingerprint | if the item changes, the assessment no longer applies |
+| level | `RiskLevel` | protected items are always `Dangerous` |
+| category | `RiskCategory` | — |
+| explanation | text | ≤ 900 characters |
+| details | JSON | `{ summary, recommendation, steps[], commands[] }` (V002) |
+| source | JSON `AssessmentSource` | — |
+| evaluator_version | text | `heuristic-vN` or `<provider>:<model>:prompt-vN`; changes force re-assessment |
 | created_at | i64 | — |
 
-Índice único: `(path, fingerprint, evaluator_version)` — funciona como cache (FR-015).
+Unique index: `(path, size_on_disk, COALESCE(modified_at, -1), inode, evaluator_version)` — acts
+as the cache (FR-015). Badges show the newest assessment matching the current fingerprint, from
+any evaluator.
 
-### InstalledApp
+### InstalledApp (planned, US4)
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | id | i64 PK | — |
-| bundle_id | text? | ausente para jogos sem bundle |
+| bundle_id | text? | absent for games without a bundle |
 | name | text | — |
-| kind | `App`, `Game`, `System` | `System` ⇒ não removível (FR-027) |
+| kind | `App`, `Game`, `System` | `System` ⇒ not removable (FR-027) |
 | store | `None`, `AppStore`, `Steam`, `Epic`, `Gog`, `BattleNet` | — |
-| last_used_at | i64? | Spotlight, quando disponível |
-| total_size | u64 | soma dos componentes |
+| last_used_at | i64? | Spotlight, when available |
+| total_size | u64 | sum of components |
 | detected_at | i64 | — |
 
-### AppComponent
+### AppComponent (planned, US4)
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | id | i64 PK | — |
 | app_id | FK → InstalledApp | — |
 | role | `Bundle`, `InstallDir`, `AppSupport`, `Cache`, `Container`, `GroupContainer`, `Preferences`, `Logs`, `SavedState`, `Other` | — |
 | path | text | — |
 | size_on_disk | u64 | — |
-| match_confidence | `Exact`, `Heuristic` | `Heuristic` exibe aviso e não é pré-selecionado |
+| match_confidence | `Exact`, `Heuristic` | `Heuristic` shows a warning and is never pre-selected |
 
-### CloudLocation
+### CloudLocation (planned, US5)
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | id | i64 PK | — |
 | provider | `ICloudDrive`, `OneDrive`, `GoogleDrive`, `Dropbox`, `OtherFileProvider` | — |
 | root_path | text UNIQUE | — |
 | detected_at | i64 | — |
 
-### CloudFileState (derivado, consultado sob demanda e cacheado por varredura)
+### CloudFileState (planned, US5 — derived, queried on demand)
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | file_entry_id | FK → FileEntry | — |
-| status | `Downloaded`, `CloudOnly`, `UploadPending`, `Error` | só `Downloaded` + uploaded é elegível (FR-030) |
+| status | `Downloaded`, `CloudOnly`, `UploadPending`, `Error` | only `Downloaded` + uploaded is eligible (FR-030) |
 | is_uploaded | bool | — |
 | error | text? | — |
 
-### ActionRecord (log de auditoria — append-only)
+### ActionRecord (audit log — append-only)
 
-| Campo | Tipo | Regras |
+| Field | Type | Rules |
 |---|---|---|
 | id | i64 PK | — |
-| batch_id | text (UUID) | agrupa uma confirmação do usuário |
-| action | `MoveToTrash`, `EvictToCloud` (`DeletePermanently` reservado) | — |
+| batch_id | text (UUID) | groups one user confirmation |
+| action | `MoveToTrash`, `EvictToCloud` (`DeletePermanently` reserved) | — |
 | path | text | — |
-| size_on_disk | u64 | tamanho no momento da ação |
-| risk_level | `RiskLevel` | nível exibido na confirmação |
+| size_on_disk | u64 | size at action time |
+| risk_level | `RiskLevel` | level shown at confirmation |
 | status | `Succeeded`, `Skipped`, `Failed` | — |
-| reason | text? | ex.: `changed-since-scan`, `protected`, `in-use`, `not-uploaded` |
+| reason | text? | e.g. `changed-since-scan`, `protected`, `missing`, `risk-not-confirmed`, `not-uploaded` |
 | executed_at | i64 | — |
 
-Nunca é atualizado nem removido pelo app (Princípio I).
+Never updated nor deleted — enforced by SQLite triggers (Principle I).
 
-### Settings (chave/valor)
+### Settings (key/value, JSON values)
 
-| Chave | Tipo | Padrão |
+| Key | Value | Default |
 |---|---|---|
-| `scan.min_file_size` | u64 | 100_000_000 |
-| `scan.default_roots` | JSON | `[$HOME, /Applications]` |
-| `scan.excluded_paths` | JSON | `[]` |
-| `ai.provider` | `none` / `anthropic` / `openai` / `ollama` | `none` |
-| `ai.model` | text | depende do provedor |
-| `ai.base_url` | text? | `http://localhost:11434` para Ollama |
-| `ai.share_content` | bool | `false` (FR-014) |
-| `ui.locale` | text | `pt-BR` |
+| `ai` | `{ provider, model, base_url }` (`provider: null` = local rules only) | `{ provider: null }` |
+| `ui.locale` (planned) | `pt-BR` / `en-US` | system language, else `en-US` |
 
-Chaves de API **não** ficam aqui: ficam no Keychain (`SecretStore`), chave `ai.<provider>.api_key`.
+API keys are **not** stored here: they live in the Keychain (`SecretStore`), account
+`ai.<provider>.api_key`, service = the app's bundle identifier.
 
 ## Relationships
 
 ```text
-Scan 1──* FileEntry *──0..1 CloudLocation
-FileEntry (path+fingerprint) 1──0..* RiskAssessment (versões do avaliador)
-InstalledApp 1──* AppComponent
-FileEntry 1──0..1 CloudFileState
-ActionRecord (independente; referencia path, não FK — sobrevive à limpeza do catálogo)
+Scan 1──* FileEntry
+FileEntry (path + fingerprint) 1──0..* RiskAssessment (one per evaluator version)
+InstalledApp 1──* AppComponent                      (planned)
+FileEntry 1──0..1 CloudFileState                     (planned)
+ActionRecord (independent; references a path, not a FK — survives catalogue replacement)
 ```
 
 ## Migrations
 
-`cleaner-infra/src/db/migrations/V001__initial.sql` cria todas as tabelas acima. Toda mudança de
-schema é uma nova migração; migrações nunca são editadas após o merge.
+`crates/cleaner-infra/src/db/migrations/`:
+
+- `V001__initial.sql` — scans, file entries, risk assessments, append-only action records,
+  settings.
+- `V002__assessment_details.sql` — `details` JSON column on `risk_assessments`.
+
+Every schema change is a new migration registered in `db/mod.rs`; migrations are never edited
+after being merged.

@@ -1,15 +1,11 @@
 <!--
 Sync Impact Report
-- Version change: (template) → 1.0.0
-- Modified principles: n/a (initial ratification)
-- Added principles:
-  I. Segurança dos Dados do Usuário (NON-NEGOTIABLE)
-  II. Arquitetura Limpa e Orientada a Domínio
-  III. Testes Primeiro (NON-NEGOTIABLE)
-  IV. IA como Consultora, Nunca Decisora
-  V. Desempenho e Responsividade
-  VI. Simplicidade e Aprendizado
-- Added sections: Stack e Restrições Técnicas; Fluxo de Desenvolvimento e Quality Gates; Governance
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: none (wording translated to English, meaning unchanged)
+- Modified sections:
+  - Development Workflow & Quality Gates: one branch per stage, merged into `main` only after
+    the owner's approval (no pull requests required for owner work).
+- Added sections: Governance → "Repository language" rule (all repository content in English).
 - Removed sections: none
 - Templates requiring updates: none (plan/spec/tasks templates read the constitution at runtime)
 - Deferred TODOs: none
@@ -19,129 +15,136 @@ Sync Impact Report
 
 ## Core Principles
 
-### I. Segurança dos Dados do Usuário (NON-NEGOTIABLE)
+### I. User Data Safety (NON-NEGOTIABLE)
 
-- O escaneamento DEVE ser estritamente somente-leitura: nenhuma operação de varredura,
-  catalogação ou análise por IA pode alterar, mover ou excluir arquivos.
-- Toda exclusão DEVE ser iniciada explicitamente pelo usuário, item a item ou em lote
-  revisado, com uma tela de confirmação que exibe tamanho total, quantidade e nível de risco.
-- A exclusão padrão DEVE mover os itens para a Lixeira do macOS. Exclusão permanente só pode
-  existir como opção explícita, desativada por padrão, com confirmação adicional.
-- Caminhos protegidos (diretórios do sistema, `/System`, `/usr`, `/bin`, `/sbin`, `/private/var/db`,
-  bundles assinados pela Apple, a própria aplicação e seu banco de dados) DEVEM ser bloqueados
-  para exclusão por uma lista de bloqueio testada.
-- Links simbólicos NÃO DEVEM ser seguidos durante a varredura para evitar contagem dupla e
-  ações fora do escopo escolhido.
-- Toda ação destrutiva DEVE ser registrada em um log de auditoria local (o quê, quando, tamanho,
-  destino).
+- Scanning MUST be strictly read-only: no scanning, cataloguing or AI analysis operation may
+  modify, move or delete files.
+- Every deletion MUST be explicitly initiated by the user, item by item or as a reviewed batch,
+  through a confirmation screen showing total size, item count and risk level.
+- Deletion MUST move items to the macOS Trash by default. Permanent deletion may only exist as
+  an explicit option, disabled by default, with an additional confirmation.
+- Protected paths (system directories such as `/System`, `/usr`, `/bin`, `/sbin`,
+  `/private/var/db`, Apple-signed bundles, the app itself and its database) MUST be blocked
+  from deletion by a tested blocklist.
+- Symbolic links MUST NOT be followed while scanning, to avoid double counting and actions
+  outside the chosen scope.
+- Every destructive action MUST be recorded in a local audit log (what, when, size, destination).
 
-Rationale: o produto lida com dados insubstituíveis; um único falso positivo custa mais do que
-qualquer ganho de espaço.
+Rationale: the product handles irreplaceable data; a single false positive costs more than any
+amount of reclaimed space.
 
-### II. Arquitetura Limpa e Orientada a Domínio
+### II. Clean, Domain-Oriented Architecture
 
-- O núcleo em Rust DEVE seguir arquitetura hexagonal (ports & adapters): o crate de domínio
-  não depende de Tauri, SQLite, sistema de arquivos real nem de provedores de IA.
-- Dependências externas DEVEM ser acessadas por traits (ports) com implementações (adapters)
-  injetáveis, permitindo substituição por fakes em testes.
-- Padrões de projeto DEVEM ser aplicados onde resolvem um problema real, e documentados no
-  código quando não óbvios: Repository (persistência), Strategy (detectores e classificadores
-  de risco), Observer/Event (progresso da varredura), Command (ações de exclusão/offload
-  auditáveis), Factory/Adapter (provedores de IA e de nuvem).
-- Orientação a objetos é aplicada via structs + traits em Rust e via classes/composables
-  tipados em TypeScript; herança é evitada em favor de composição.
-- O frontend Vue DEVE usar TypeScript estrito, Composition API, e manter lógica de negócio fora
-  dos componentes (stores/composables/services).
-- Funções DEVEM ter responsabilidade única; `unwrap()`/`expect()` são proibidos fora de testes
-  e de invariantes documentadas; erros usam tipos próprios (`thiserror`).
+- The Rust core MUST follow a hexagonal architecture (ports & adapters): the domain crate does
+  not depend on Tauri, SQLite, the real filesystem or AI providers.
+- External dependencies MUST be reached through traits (ports) with injectable implementations
+  (adapters), so they can be replaced by fakes in tests.
+- Design patterns MUST be applied where they solve a real problem, and documented in code when
+  not obvious: Repository (persistence), Strategy (detectors and risk classifiers),
+  Observer/Event (scan progress), Command (auditable delete/offload actions), Factory/Adapter
+  (AI and cloud providers).
+- Object orientation is applied through structs + traits in Rust and typed classes/composables
+  in TypeScript; composition is preferred over inheritance.
+- The Vue frontend MUST use strict TypeScript and the Composition API, and keep business logic
+  out of components (stores/composables/services).
+- Functions MUST have a single responsibility; `unwrap()`/`expect()` are forbidden outside tests
+  and documented invariants; errors use dedicated types (`thiserror`).
 
-Rationale: separação de camadas torna o código testável, substituível e didático para o
-estudo de Rust.
+Rationale: layer separation keeps the code testable, replaceable and instructive for learning
+Rust.
 
-### III. Testes Primeiro (NON-NEGOTIABLE)
+### III. Test First (NON-NEGOTIABLE)
 
-- Fluxo TDD: testes escritos e falhando antes da implementação (Red-Green-Refactor).
-- Testes unitários DEVEM cobrir domínio e casos de uso; cobertura mínima de linhas de 80% no
-  núcleo Rust e de 70% no frontend, verificada no CI.
-- Testes de integração DEVEM exercitar adapters reais: sistema de arquivos em diretórios
-  temporários (`tempfile`), SQLite real em arquivo temporário/memória, e comandos Tauri.
-- Provedores de IA e de nuvem DEVEM ter testes de contrato com fakes; nenhum teste do CI
-  depende de rede ou de credenciais.
-- Toda regra de segurança do Princípio I DEVE ter teste dedicado (lista de bloqueio, Lixeira,
-  symlinks, confirmação).
+- TDD flow: tests are written and failing before the implementation (Red-Green-Refactor).
+- Unit tests MUST cover the domain and use cases; minimum line coverage of 80% for the Rust core
+  and 70% for the frontend, enforced in CI.
+- Integration tests MUST exercise real adapters: filesystem in temporary directories
+  (`tempfile`), real SQLite in a temporary file, and Tauri commands.
+- AI and cloud providers MUST have contract tests with fakes or local mock servers; no CI test
+  depends on the network or on credentials.
+- Every safety rule of Principle I MUST have a dedicated test (blocklist, Trash, symlinks,
+  confirmation).
 
-Rationale: um app que exclui arquivos precisa de garantias executáveis, não de boas intenções.
+Rationale: an app that deletes files needs executable guarantees, not good intentions.
 
-### IV. IA como Consultora, Nunca Decisora
+### IV. AI Advises, Never Decides
 
-- A IA DEVE apenas classificar e explicar (nível de risco + justificativa legível); nunca
-  dispara exclusões nem pré-seleciona itens de alto risco.
-- Por padrão, somente metadados (caminho, nome, extensão, tamanho, datas, tipo, bundle id)
-  podem ser enviados a um provedor de IA. Envio de conteúdo de arquivo exige opt-in explícito.
-- O app DEVE funcionar sem IA (offline ou sem chave): um classificador heurístico local
-  fornece a classificação básica de risco.
-- Respostas da IA DEVEM ser validadas contra um schema; respostas inválidas são descartadas
-  e caem para a heurística.
-- Classificações DEVEM ser cacheadas no SQLite para evitar custo e reenvio de dados.
+- AI MUST only classify and explain (risk level + human-readable rationale); it never triggers
+  deletions nor pre-selects high-risk items.
+- By default only metadata (path, name, extension, size, dates, kind, bundle id) may be sent to
+  an AI provider. Sending file contents requires an explicit opt-in.
+- The app MUST work without AI (offline or without a key): a local heuristic classifier provides
+  the baseline risk classification.
+- AI responses MUST be validated against a schema; invalid responses are discarded and fall back
+  to the heuristics.
+- Classifications MUST be cached in SQLite to avoid cost and re-sending data.
 
-Rationale: privacidade e previsibilidade; a decisão final é sempre do usuário, bem informado.
+Rationale: privacy and predictability; the final decision always belongs to a well-informed
+user.
 
-### V. Desempenho e Responsividade
+### V. Performance and Responsiveness
 
-- A varredura DEVE rodar fora da thread de UI, ser cancelável, e emitir eventos de progresso
-  em intervalos limitados (throttle) para a interface.
-- A varredura DEVE ser paralelizada e persistir em lotes (transações) no SQLite.
-- Re-varreduras DEVEM ser incrementais quando possível (comparar mtime/tamanho).
-- A UI DEVE permanecer responsiva com catálogos de milhões de entradas (paginação e consultas
-  ordenadas no banco, nunca carregar tudo em memória no frontend).
+- Scanning MUST run off the UI thread, be cancellable, and emit throttled progress events to the
+  interface.
+- Scanning MUST be parallel and persist to SQLite in batches (transactions).
+- Rescans MUST be incremental where possible (compare mtime/size).
+- The UI MUST stay responsive with catalogues of millions of entries (pagination and ordered
+  queries in the database; never load everything into frontend memory).
 
-Rationale: discos modernos têm milhões de arquivos; uma UI travada destrói a confiança.
+Rationale: modern disks hold millions of files; a frozen UI destroys trust.
 
-### VI. Simplicidade e Aprendizado
+### VI. Simplicity and Learning
 
-- Preferir o mínimo de dependências: SQLite local como única persistência, sem servidores.
-- YAGNI: nenhuma funcionalidade especulativa; complexidade adicional exige justificativa na
-  seção "Complexity Tracking" do plano.
-- Código Rust DEVE ser idiomático e comentado onde ensina algo (ownership, lifetimes,
-  concorrência), pois o projeto também é um veículo de aprendizado.
+- Prefer the fewest dependencies: local SQLite as the only persistence, no servers.
+- YAGNI: no speculative features; extra complexity requires a justification in the plan's
+  "Complexity Tracking" section.
+- Rust code MUST be idiomatic and commented where it teaches something (ownership, lifetimes,
+  concurrency), since the project is also a learning vehicle.
 
-Rationale: simplicidade reduz bugs e mantém o projeto compreensível.
+Rationale: simplicity reduces bugs and keeps the project understandable.
 
-## Stack e Restrições Técnicas
+## Stack and Technical Constraints
 
-- Desktop: Tauri v2; núcleo em Rust stable (edição 2021+), organizado em workspace Cargo.
-- Frontend: Vue 3 + TypeScript (strict) + Vite; estado com Pinia; testes com Vitest +
-  Vue Test Utils.
-- Persistência: SQLite (via `rusqlite` ou `sqlx`) com migrações versionadas.
-- Plataforma alvo: macOS 13+ (Apple Silicon e Intel). O app solicita e explica a permissão
-  "Acesso Total ao Disco" quando necessário. Suporte a outras plataformas é não-objetivo.
-- Integrações de nuvem (iCloud Drive, OneDrive, Google Drive, Dropbox) DEVEM usar mecanismos
-  oficiais do sistema/cliente (ex.: File Provider / `brctl evict` para iCloud), nunca APIs
-  não documentadas que manipulem dados diretamente.
-- Segredos (chaves de API de IA) DEVEM ser armazenados no Keychain do macOS, nunca no SQLite
-  nem em arquivos de configuração em texto puro.
+- Desktop: Tauri v2; Rust stable core (edition 2021+), organised as a Cargo workspace.
+- Frontend: Vue 3 + TypeScript (strict) + Vite; state with Pinia; tests with Vitest + Vue Test
+  Utils.
+- Persistence: SQLite (via `rusqlite`) with versioned migrations.
+- Target platform: macOS 13+ (Apple Silicon and Intel). The app requests and explains the
+  "Full Disk Access" permission when needed. Other platforms are a non-goal.
+- Cloud integrations (iCloud Drive, OneDrive, Google Drive, Dropbox) MUST use official
+  system/client mechanisms (e.g. File Provider, `brctl evict` for iCloud), never undocumented
+  APIs that manipulate data directly.
+- Secrets (AI API keys) MUST be stored in the macOS Keychain, never in SQLite nor in plain-text
+  configuration files.
 
-## Fluxo de Desenvolvimento e Quality Gates
+## Development Workflow and Quality Gates
 
-- Spec-Driven Development com Spec Kit: cada funcionalidade passa por specify → clarify (quando
-  necessário) → plan → tasks → implement, em branch própria.
-- Commits seguem Conventional Commits. `main` é protegida; mudanças entram por Pull Request.
-- CI (GitHub Actions) DEVE rodar em todo push e PR, e todos os gates DEVEM passar:
-  - Rust: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, cobertura
-    (`cargo llvm-cov`) com limite mínimo.
-  - Frontend: lint (ESLint), checagem de tipos (`vue-tsc`), formatação (Prettier),
-    `vitest` com cobertura.
-  - Build: `tauri build` em runner macOS.
-- CD: tags `v*` geram release no GitHub com o `.dmg` como artefato.
-- Code review DEVE verificar conformidade com esta constituição.
+- Spec-Driven Development with Spec Kit: each feature goes through specify → clarify (when
+  needed) → plan → tasks → implement.
+- Each stage lives on its own branch (`NNN-short-name`) created from `main`. Branches are pushed
+  freely; they are merged into `main` only after the project owner approves the stage.
+  Contributions from other people go through pull requests.
+- Commits follow Conventional Commits.
+- CI (GitHub Actions) MUST run on every push and pull request, and every gate MUST pass:
+  - Rust: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, coverage
+    (`cargo llvm-cov`) with a minimum threshold.
+  - Frontend: lint (ESLint), type checking (`vue-tsc`), formatting (Prettier), `vitest` with
+    coverage.
+  - Build: `tauri build` on a macOS runner.
+- CD: `v*` tags produce a GitHub release with the `.dmg` as an artifact.
+- Code review MUST check compliance with this constitution.
 
 ## Governance
 
-- Esta constituição prevalece sobre quaisquer outras práticas do projeto.
-- Emendas exigem PR dedicado com justificativa, atualização do Sync Impact Report e da versão.
-- Versionamento semântico: MAJOR para remoção/redefinição de princípios, MINOR para novos
-  princípios ou seções, PATCH para clarificações.
-- Violações justificadas DEVEM ser registradas em "Complexity Tracking" no plano da feature.
-- Orientação de desenvolvimento em tempo de execução fica em `CLAUDE.md` / `README.md`.
+- This constitution supersedes any other project practice.
+- Amendments require a dedicated change with a rationale, an updated Sync Impact Report and a
+  version bump.
+- Semantic versioning: MAJOR for removing/redefining principles, MINOR for new principles or
+  sections, PATCH for clarifications.
+- Justified violations MUST be recorded in the feature plan's "Complexity Tracking".
+- Repository language: everything committed to the repository (code, comments, README,
+  CLAUDE.md, specs, plans, tasks, this constitution and commit messages) MUST be written in
+  English. User-facing UI strings live in `src/i18n/` and follow the app's locale (pt-BR first).
+- Runtime development guidance lives in `CLAUDE.md` / `README.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-14
+**Version**: 1.1.0 | **Ratified**: 2026-10-14 | **Last Amended**: 2026-10-14

@@ -2,217 +2,220 @@
 description: "Task list for 001-disk-space-cleaner"
 ---
 
-# Tasks: Analisador e Limpador de Espaço em Disco com IA
+# Tasks: AI-Assisted Disk Space Analyzer and Cleaner
 
 **Input**: Design documents from `/specs/001-disk-space-cleaner/`
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
-**Tests**: OBRIGATÓRIOS (Constituição, Princípio III — TDD). Em cada história, as tarefas de teste
-vêm antes da implementação e devem falhar antes de serem satisfeitas.
+**Tests**: REQUIRED (Constitution, Principle III — TDD). In each story, test tasks come before the
+implementation and must fail before they are satisfied.
 
-**Organization**: tarefas agrupadas por história para entrega incremental.
+**Organization**: tasks grouped by user story for incremental delivery.
 
 ## Format: `[ID] [P?] [Story] Description`
 
-- **[P]**: pode rodar em paralelo (arquivos diferentes, sem dependência)
+- **[P]**: can run in parallel (different files, no dependencies)
 - **[Story]**: US1..US5
 
 ## Path Conventions
 
 - Rust core: `crates/cleaner-core/`, adapters: `crates/cleaner-infra/`, app: `src-tauri/`
-- Frontend: `src/` (testes em `src/**/__tests__/`)
+- Frontend: `src/` (tests next to the code as `*.test.ts`)
 
 ---
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [X] T001 Instalar toolchain Rust e criar `rust-toolchain.toml` (stable + rustfmt, clippy, llvm-tools-preview)
-- [X] T002 Scaffold Tauri v2 + Vue 3 + TS (Vite) na raiz: `package.json`, `vite.config.ts`, `index.html`, `src/`, `src-tauri/`
-- [X] T003 Criar workspace Cargo em `Cargo.toml` com membros `crates/cleaner-core`, `crates/cleaner-infra`, `src-tauri`
-- [X] T004 [P] Configurar lints Rust no workspace (`[workspace.lints]`: `clippy::unwrap_used`, `expect_used`, `pedantic` seletivo) e `rustfmt.toml`
-- [X] T005 [P] Configurar ESLint (flat config, `eslint-plugin-vue`, `typescript-eslint`), Prettier e `tsconfig` strict
-- [X] T006 [P] Configurar Vitest + Vue Test Utils + cobertura v8 (limite 70%) em `vitest.config.ts`
-- [X] T007 [P] Criar `.github/workflows/ci.yml` (jobs rust, frontend, build) e `.github/dependabot.yml`
-- [X] T008 [P] Criar `README.md` e `CLAUDE.md` com comandos de desenvolvimento e referência à constituição
+- [X] T001 Install the Rust toolchain and create `rust-toolchain.toml` (stable + rustfmt, clippy, llvm-tools-preview)
+- [X] T002 Scaffold Tauri v2 + Vue 3 + TS (Vite) at the root: `package.json`, `vite.config.ts`, `index.html`, `src/`, `src-tauri/`
+- [X] T003 Create the Cargo workspace in `Cargo.toml` with members `crates/cleaner-core`, `crates/cleaner-infra`, `src-tauri`
+- [X] T004 [P] Configure workspace Rust lints (`[workspace.lints]`: `clippy::unwrap_used`, `expect_used`, `panic`, ...) and `rustfmt.toml`
+- [X] T005 [P] Configure ESLint (flat config, `eslint-plugin-vue`, `typescript-eslint`), Prettier and strict `tsconfig`
+- [X] T006 [P] Configure Vitest + Vue Test Utils + v8 coverage (70% threshold) in `vite.config.ts`
+- [X] T007 [P] Create `.github/workflows/ci.yml` (rust, frontend, types, build jobs) and `.github/dependabot.yml`
+- [X] T008 [P] Create `README.md` and `CLAUDE.md` with development commands and a reference to the constitution
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**⚠️ CRITICAL**: nenhuma história começa antes desta fase.
+**⚠️ CRITICAL**: no user story starts before this phase.
 
 ### Tests
 
-- [X] T009 [P] Testes de `ByteSize` (formatação base 1000) e `RiskLevel` (ordenação) em `crates/cleaner-core/src/domain/size.rs` e `risk.rs`
-- [X] T010 [P] Testes (incl. `proptest`) da `ProtectedPathPolicy` em `crates/cleaner-core/src/policy/protected_paths.rs`
-- [X] T011 [P] Testes de integração de migrações SQLite (aplica V001 em banco temporário) em `crates/cleaner-infra/tests/db_migrations.rs`
+- [X] T009 [P] Tests for `ByteSize` (base-1000 formatting) and `RiskLevel` (ordering) in `crates/cleaner-core/src/domain/size.rs` and `risk.rs`
+- [X] T010 [P] Tests (including `proptest`) for `ProtectedPathPolicy` in `crates/cleaner-core/src/policy/protected_paths.rs`
+- [X] T011 [P] SQLite migration tests (apply migrations on a temporary database) in `crates/cleaner-infra/src/db/mod.rs` and `tests/sqlite_catalog.rs`
 
 ### Implementation
 
-- [X] T012 [P] Value objects e entidades de domínio em `crates/cleaner-core/src/domain/` (scan, file_entry, risk, app, cloud, action, size)
-- [X] T013 [P] Ports (traits) conforme `contracts/core-ports.md` em `crates/cleaner-core/src/ports/`
-- [X] T014 Erros de domínio com `thiserror` em `crates/cleaner-core/src/error.rs`
-- [X] T015 `ProtectedPathPolicy` em `crates/cleaner-core/src/policy/protected_paths.rs`
-- [X] T016 Fakes in-memory dos ports (feature `testing`) em `crates/cleaner-core/src/testing/`
-- [X] T017 Conexão SQLite (WAL, pragmas) + `V001__initial.sql` + runner de migrações em `crates/cleaner-infra/src/db/`
-- [X] T018 `AppError` + conversões para IPC em `src-tauri/src/error.rs`; `tracing` configurado em `src-tauri/src/lib.rs`
-- [X] T019 Composition root e `AppState` em `src-tauri/src/lib.rs` e `src-tauri/src/state.rs`
-- [X] T020 [P] Geração de tipos `ts-rs` para `src/types/generated/` + script `npm run gen:types` + checagem de diff no CI
-- [X] T021 [P] Layout base da UI: router, navegação lateral, tema claro/escuro, `vue-i18n` pt-BR em `src/`
-- [X] T022 [P] Camada `src/services/ipc/` (wrapper tipado de `invoke` e `Channel`) com testes usando `mockIPC`
+- [X] T012 [P] Domain value objects and entities in `crates/cleaner-core/src/domain/` (scan, file_entry, risk, action, size, package)
+- [X] T013 [P] Ports (traits) per `contracts/core-ports.md` in `crates/cleaner-core/src/ports/`
+- [X] T014 Domain errors with `thiserror` in `crates/cleaner-core/src/error.rs`
+- [X] T015 `ProtectedPathPolicy` in `crates/cleaner-core/src/policy/protected_paths.rs`
+- [X] T016 In-memory port fakes (`testing` feature) in `crates/cleaner-core/src/testing/`
+- [X] T017 SQLite connection (WAL, pragmas) + `V001__initial.sql` + migration runner in `crates/cleaner-infra/src/db/`
+- [X] T018 `AppError` + IPC conversions in `src-tauri/src/error.rs`; `tracing` set up in `src-tauri/src/lib.rs`
+- [X] T019 Composition root and `AppState` in `src-tauri/src/state.rs`
+- [X] T020 [P] `ts-rs` type generation into `src/types/generated/` + `npm run gen:types` + diff check in CI
+- [X] T021 [P] Base UI layout: router, side navigation, light/dark theme, pt-BR `vue-i18n` in `src/`
+- [X] T022 [P] `src/services/ipc/` layer (`Transport` port + typed `Api` facade over `invoke` and `Channel`) with tests
 
-**Checkpoint**: fundação pronta; `cargo test`, `npm test` e CI verdes.
+**Checkpoint**: foundation ready; `cargo test`, `npm test` and CI green.
 
 ---
 
-## Phase 3: User Story 1 - Varredura e ranking dos maiores arquivos (P1) 🎯 MVP
+## Phase 3: User Story 1 - Scan and rank the largest files (P1) 🎯 MVP
 
-**Goal**: varrer pastas, catalogar e listar arquivos/pastas por tamanho, com progresso e cancelamento.
+**Goal**: scan folders, catalogue and list files/folders by size, with progress and cancellation.
 
-**Independent Test**: varrer fixture com tamanhos conhecidos e verificar ordem, filtros e totais.
+**Independent Test**: scan a fixture with known sizes and check order, filters and totals.
 
 ### Tests for User Story 1 ⚠️
 
-- [X] T023 [P] [US1] Script de fixture `scripts/make-fixture-tree.sh` (arquivos esparsos, hard link, symlink, pasta sem permissão)
-- [X] T024 [P] [US1] Teste de integração do `JwalkScanner` (tamanho em disco, hard link uma vez, symlink ignorado, inacessível reportado, não cruza volume, cancelamento) em `crates/cleaner-infra/tests/scanner_fs.rs`
-- [X] T025 [P] [US1] Teste de integração dos repositórios `Scan`/`FileEntry` (batch insert, paginação ordenada, filtros) em `crates/cleaner-infra/tests/sqlite_catalog.rs`
-- [X] T026 [P] [US1] Testes unitários do `ScanService` com fakes (agregação de pastas, limite mínimo, transições de estado, incremental) em `crates/cleaner-core/src/services/scan_service.rs`
-- [X] T027 [P] [US1] Testes dos stores `scan`/`catalog` e componentes `ScanProgress`/`FileTable` com `mockIPC` em `src/**/__tests__/`
+- [X] T023 [P] [US1] Fixture script `scripts/make-fixture-tree.sh` (real data files, hard link, symlink, locked folder)
+- [X] T024 [P] [US1] `JwalkScanner` integration tests (size on disk, hard link reported, symlink ignored, inaccessible reported, exclusions, cancellation) in `crates/cleaner-infra/tests/scanner_fs.rs`
+- [X] T025 [P] [US1] `Scan`/`FileEntry` repository integration tests (batch insert, ordered pagination, filters) in `crates/cleaner-infra/tests/sqlite_catalog.rs`
+- [X] T026 [P] [US1] `ScanService` unit tests with fakes (folder aggregation, threshold, state transitions, recovery) in `crates/cleaner-core/src/services/scan_service.rs`
+- [X] T027 [P] [US1] Tests for the `scan`/`catalog` stores and the `ScanProgress`/`FileTable` components
 
 ### Implementation for User Story 1
 
-- [X] T028 [US1] `JwalkScanner` + `FileInspector` em `crates/cleaner-infra/src/fs/`
-- [X] T029 [US1] `SqliteScanRepository` e `SqliteFileEntryRepository` em `crates/cleaner-infra/src/db/`
-- [X] T030 [US1] `ScanService` (agregação bottom-up, batches, cancelamento, incremental) e `CatalogService` em `crates/cleaner-core/src/services/`
-- [X] T031 [US1] Comandos `start_scan`, `cancel_scan`, `get_latest_scan`, `list_files`, `list_folder_children`, `reveal_in_finder` em `src-tauri/src/commands/scan.rs` e `catalog.rs`
-- [X] T032 [US1] Permissões: `get_permissions_status`, `open_full_disk_access_settings` em `crates/cleaner-infra/src/macos/permissions.rs` e `src-tauri/src/commands/settings.rs`
-- [X] T033 [US1] Telas `ScanView` (escolha de raízes, progresso, cancelar, aviso de Acesso Total) e `FilesView` (lista virtualizada, filtros, navegação por pasta) em `src/views/`
-- [X] T034 [US1] Stores Pinia `scan` e `catalog` em `src/stores/`
+- [X] T028 [US1] `JwalkScanner` + `StdFileInspector` in `crates/cleaner-infra/src/fs/`
+- [X] T029 [US1] `SqliteScanRepository` and `SqliteFileEntryRepository` in `crates/cleaner-infra/src/db/`
+- [X] T030 [US1] `ScanService` (bottom-up aggregation, batches, cancellation) and `CatalogService` in `crates/cleaner-core/src/services/`
+- [X] T031 [US1] Commands `start_scan`, `cancel_scan`, `get_latest_scan`, `list_files`, `list_folder_children`, `reveal_in_finder` in `src-tauri/src/commands/`
+- [X] T032 [US1] Permissions: `get_permissions_status` (including the app macOS expects), `open_full_disk_access_settings` in `crates/cleaner-infra/src/macos/` and `src-tauri/src/commands/system.rs`
+- [X] T033 [US1] `ScanView` (roots, progress, cancel, Full Disk Access guidance) and `FilesView` (paginated list, filters, folder drill-down) in `src/views/`
+- [X] T034 [US1] Pinia stores `scan` and `catalog` in `src/stores/`
 
-**Checkpoint**: MVP funcional — varredura e ranking ponta a ponta.
+**Checkpoint**: functional MVP — scan and ranking end to end.
 
 ---
 
-## Phase 4: User Story 2 - Avaliação de risco assistida por IA (P2)
+## Phase 4: User Story 2 - AI-assisted risk assessment (P2)
 
-> Implementada na branch `002-ai-risk-analysis` — ver [specs/002-ai-risk-analysis](../002-ai-risk-analysis/tasks.md). Pendente: T035 (benchmark) e análise em lote (`assess_top`).
+> Delivered on branches `002-ai-risk-analysis` and `003-batch-ai-analysis` — see
+> [specs/002](../002-ai-risk-analysis/tasks.md) and [specs/003](../003-batch-ai-analysis/tasks.md).
+> Pending: T035 (labelled benchmark).
 
-**Goal**: nível de risco + explicação para cada item, com IA em nuvem/local ou regras locais.
+**Goal**: risk level + explanation for each item, with cloud/local AI or local rules.
 
-**Independent Test**: catálogo de exemplo avaliado; itens de sistema nunca "Seguro"; cache reaproveitado.
+**Independent Test**: sample catalogue assessed; system items never "Safe"; cache reused.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T035 [P] [US2] Benchmark rotulado `fixtures/risk-benchmark.json` (200 itens) + teste `crates/cleaner-core/tests/risk_benchmark.rs`
-- [X] T036 [P] [US2] Testes da `ClassifierChain` (precedência protegido > cache > IA > heurística; fallback em erro/JSON inválido) em `crates/cleaner-core/src/classify/chain.rs`
-- [X] T037 [P] [US2] Testes de contrato dos provedores Anthropic/OpenAI/Ollama com `wiremock` (payload só metadados, `~` no home, retries, schema) em `crates/cleaner-infra/tests/ai_providers.rs`
-- [X] T038 [P] [US2] Teste do repositório de avaliações (cache por fingerprint + versão) em `crates/cleaner-infra/tests/sqlite_assessments.rs`
-- [X] T039 [P] [US2] Testes de `RiskBadge`, store `assessment` e `SettingsView` em `src/**/__tests__/`
+- [ ] T035 [P] [US2] Labelled benchmark `fixtures/risk-benchmark.json` (200 items) + test `crates/cleaner-core/tests/risk_benchmark.rs`
+- [X] T036 [P] [US2] Classification chain tests (protected > cache > AI > rules; fallback on error/invalid JSON; safety floor) in `crates/cleaner-core/src/services/analysis_service.rs`
+- [X] T037 [P] [US2] Contract tests for the Claude/OpenAI/Gemini/Ollama adapters against a mock server (metadata only, `~` for home, retries, schema) in `crates/cleaner-infra/tests/ai_providers.rs`
+- [X] T038 [P] [US2] Assessment repository tests (cache by fingerprint + version) in `crates/cleaner-infra/tests/sqlite_assessments.rs`
+- [X] T039 [P] [US2] Tests for `RiskBadge`, `AnalysisPanel`, the `analysis`/`aiSettings` stores and `SettingsView`
 
 ### Implementation for User Story 2
 
-- [X] T040 [P] [US2] `HeuristicClassifier` (regras por caminho/extensão/categoria) em `crates/cleaner-core/src/policy/heuristics.rs` e `classify/heuristic.rs`
-- [X] T041 [P] [US2] `ProtectedPathClassifier`, `CachedClassifier`, `AiClassifier`, `ClassifierChain` em `crates/cleaner-core/src/classify/`
-- [X] T042 [US2] `AssessmentService` em `crates/cleaner-core/src/services/assessment_service.rs`
-- [X] T043 [P] [US2] Adapters de IA + `AiProviderFactory` + prompt versionado + schema em `crates/cleaner-infra/src/ai/`
-- [X] T044 [P] [US2] `KeychainSecretStore` em `crates/cleaner-infra/src/macos/keychain.rs` e `SqliteSettingsRepository`/`SqliteAssessmentRepository`
-- [X] T045 [US2] Comandos `assess_files`, `assess_top`, `get_ai_settings`, `save_ai_settings`, `test_ai_connection` em `src-tauri/src/commands/assessment.rs` e `settings.rs`
-- [X] T046 [US2] UI: `RiskBadge` com explicação/origem, filtro por risco, botão "Avaliar maiores", `SettingsView` (provedor, modelo, chave, compartilhar conteúdo)
+- [X] T040 [P] [US2] Local rules (`HeuristicAnalyzer`) in `crates/cleaner-core/src/analysis/heuristics.rs`
+- [X] T041 [P] [US2] Prompt, schema and response validation in `crates/cleaner-core/src/analysis/prompt.rs` and `verdict.rs`
+- [X] T042 [US2] `AnalysisService` and `AiSettingsService` in `crates/cleaner-core/src/services/`
+- [X] T043 [P] [US2] AI adapters + `HttpAiProviderFactory` in `crates/cleaner-infra/src/ai/`
+- [X] T044 [P] [US2] `KeychainSecretStore` in `crates/cleaner-infra/src/macos/keychain.rs` and `SqliteSettingsRepository`/`SqliteAssessmentRepository`
+- [X] T045 [US2] Commands `analyze_file`, `analyze_files`, `get_analyses`, `get_ai_settings`, `save_ai_settings`, `list_ai_models`, `test_ai_connection` in `src-tauri/src/commands/analysis.rs`
+- [X] T046 [US2] UI: `RiskBadge`, analysis panel with copyable commands, multi-select batch analysis, `SettingsView` (provider, key, model list, URL)
 
-**Checkpoint**: US1 + US2 independentes e funcionais.
+**Checkpoint**: US1 + US2 independent and functional.
 
 ---
 
-## Phase 5: User Story 3 - Exclusão segura e consciente (P3)
+## Phase 5: User Story 3 - Safe, informed deletion (P3)
 
-**Goal**: revisão → confirmação → Lixeira → histórico.
+**Goal**: review → confirmation → Trash → history.
 
-**Independent Test**: excluir arquivos de fixture; verificar Lixeira, catálogo e histórico.
+**Independent Test**: delete fixture files; check the Trash, the catalogue and the history.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T047 [P] [US3] Testes do `ActionExecutor` (protegido pulado, fingerprint divergente pulado, arriscado sem confirmação pulado, auditoria sempre registrada) em `crates/cleaner-core/src/services/cleanup_service.rs`
-- [ ] T048 [P] [US3] Teste de integração do `TrashPort` real e do `ActionLogRepository` append-only em `crates/cleaner-infra/tests/cleanup.rs`
-- [ ] T049 [P] [US3] Testes do `CleanupReviewDialog` (total, destaque de risco, confirmação individual) e `HistoryView`
+- [ ] T047 [P] [US3] `ActionExecutor` tests (protected skipped, changed fingerprint skipped, unconfirmed risky skipped, audit always recorded) in `crates/cleaner-core/src/services/cleanup_service.rs`
+- [ ] T048 [P] [US3] Integration tests for the real `TrashPort` and the append-only `ActionLogRepository` in `crates/cleaner-infra/tests/cleanup.rs`
+- [ ] T049 [P] [US3] Tests for `CleanupReviewDialog` (totals, risk highlighting, individual confirmation) and `HistoryView`
 
 ### Implementation for User Story 3
 
-- [ ] T050 [US3] Commands `MoveToTrash` e `ActionExecutor` + `CleanupService` (preview com token de 10 min, execute) em `crates/cleaner-core/src/services/cleanup_service.rs`
-- [ ] T051 [P] [US3] `MacTrash` (crate `trash`) e `SqliteActionLogRepository` em `crates/cleaner-infra/`
-- [ ] T052 [US3] Comandos `preview_cleanup`, `execute_cleanup`, `list_action_history` em `src-tauri/src/commands/cleanup.rs`
-- [ ] T053 [US3] UI: seleção na `FilesView` (sem pré-seleção de risco), `CleanupReviewDialog`, `HistoryView`, store `cleanup`
+- [ ] T050 [US3] `MoveToTrash` command + `ActionExecutor` + `CleanupService` (preview with a 10-minute token, execute) in `crates/cleaner-core/src/services/cleanup_service.rs`
+- [ ] T051 [P] [US3] `MacTrash` (`trash` crate) and `SqliteActionLogRepository` in `crates/cleaner-infra/`
+- [ ] T052 [US3] Commands `preview_cleanup`, `execute_cleanup`, `list_action_history` in `src-tauri/src/commands/cleanup.rs`
+- [ ] T053 [US3] UI: "Delete selected" on the existing selection bar (no risky pre-selection), `CleanupReviewDialog`, `HistoryView`, `cleanup` store
 
-**Checkpoint**: ciclo completo varrer → avaliar → excluir.
+**Checkpoint**: full cycle scan → assess → delete.
 
 ---
 
-## Phase 6: User Story 4 - Aplicações e jogos (P4)
+## Phase 6: User Story 4 - Applications and games (P4)
 
-**Goal**: apps/jogos com tamanho total (pacote + dados) e composição.
+**Goal**: apps/games with total size (bundle + data) and breakdown.
 
-**Independent Test**: apps de fixture com tamanhos conhecidos; totais e composição corretos.
+**Independent Test**: fixture apps with known sizes; correct totals and breakdown.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T054 [P] [US4] Testes dos detectores com fixtures (`Info.plist`, `appmanifest_*.acf`, manifests Epic) em `crates/cleaner-infra/tests/app_detectors.rs`
-- [ ] T055 [P] [US4] Testes do `AppsService` (agregação, sistema não removível, confiança heurística não pré-selecionada)
-- [ ] T056 [P] [US4] Testes da `AppsView` e store `apps`
+- [ ] T054 [P] [US4] Detector tests with fixtures (`Info.plist`, `appmanifest_*.acf`, Epic manifests) in `crates/cleaner-infra/tests/app_detectors.rs`
+- [ ] T055 [P] [US4] `AppsService` tests (aggregation, system not removable, heuristic matches not pre-selected)
+- [ ] T056 [P] [US4] Tests for `AppsView` and the `apps` store
 
 ### Implementation for User Story 4
 
-- [ ] T057 [P] [US4] `BundleAppDetector` + resolução de dados associados por bundle id em `crates/cleaner-infra/src/apps/bundle.rs`
-- [ ] T058 [P] [US4] `SteamDetector` (parser VDF), `EpicDetector`, `GogDetector`, `BattleNetDetector` em `crates/cleaner-infra/src/apps/`
-- [ ] T059 [P] [US4] Último uso via Spotlight em `crates/cleaner-infra/src/apps/spotlight.rs`
-- [ ] T060 [US4] `AppsService` + `SqliteAppRepository` e comandos `list_installed_apps`, `get_app_components`, `preview_app_removal`
-- [ ] T061 [US4] UI `AppsView` (lista, composição expansível, remoção via fluxo US3)
+- [ ] T057 [P] [US4] `BundleAppDetector` + associated data by bundle id in `crates/cleaner-infra/src/apps/bundle.rs`
+- [ ] T058 [P] [US4] `SteamDetector` (VDF parser), `EpicDetector`, `GogDetector`, `BattleNetDetector` in `crates/cleaner-infra/src/apps/`
+- [ ] T059 [P] [US4] Last use through Spotlight in `crates/cleaner-infra/src/apps/spotlight.rs`
+- [ ] T060 [US4] `AppsService` + `SqliteAppRepository` and commands `list_installed_apps`, `get_app_components`, `preview_app_removal`
+- [ ] T061 [US4] `AppsView` UI (list, expandable breakdown, removal through the US3 flow)
 
 ---
 
-## Phase 7: User Story 5 - Liberar espaço de arquivos da nuvem (P5)
+## Phase 7: User Story 5 - Free space from cloud files (P5)
 
-**Goal**: listar arquivos baixados em pastas de nuvem e "manter somente na nuvem".
+**Goal**: list downloaded files in cloud folders and "keep only in the cloud".
 
-**Independent Test**: arquivos sincronizados na pasta de nuvem; evict libera espaço local.
+**Independent Test**: synced files in a cloud folder; evicting frees local space.
 
-- [ ] T062 [US5] Spike: validar `evictUbiquitousItemAtURL` e chaves de estado por provedor; registrar em `docs/cloud-provider-matrix.md`
-- [ ] T063 [P] [US5] Testes do `CloudService` com fakes (elegibilidade só `Downloaded`+uploaded, total liberável por provedor)
-- [ ] T064 [P] [US5] Testes de detecção de pastas de nuvem com árvore temporária simulando `~/Library/CloudStorage` e `Mobile Documents`
-- [ ] T065 [US5] `CloudLocationDetector`, `FoundationCloudState`, `FoundationEvict` (objc2-foundation, fallback `brctl`) em `crates/cleaner-infra/src/cloud/`
-- [ ] T066 [US5] `CloudService` + command `EvictToCloud` + comandos `list_cloud_locations`, `list_cloud_files`, `preview_evict`, `execute_evict`
-- [ ] T067 [US5] UI `CloudView` (por provedor, estado de sincronização, ação indisponível para não sincronizados)
+- [ ] T062 [US5] Spike: validate `evictUbiquitousItemAtURL` and state keys per provider; record in `docs/cloud-provider-matrix.md`
+- [ ] T063 [P] [US5] `CloudService` tests with fakes (only `Downloaded` + uploaded eligible, reclaimable total per provider)
+- [ ] T064 [P] [US5] Cloud folder detection tests with a temporary tree mimicking `~/Library/CloudStorage` and `Mobile Documents`
+- [ ] T065 [US5] `CloudLocationDetector`, `FoundationCloudState`, `FoundationEvict` (objc2-foundation, `brctl` fallback) in `crates/cleaner-infra/src/cloud/`
+- [ ] T066 [US5] `CloudService` + `EvictToCloud` command + IPC commands `list_cloud_locations`, `list_cloud_files`, `preview_evict`, `execute_evict`
+- [ ] T067 [US5] `CloudView` UI (per provider, sync state, action unavailable when not synced)
 
 ---
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T068 [P] Benchmark de desempenho da varredura (1 M arquivos sintéticos) e ajuste de batch/throttle — SC-001/SC-003
-- [ ] T069 [P] `.github/workflows/release.yml` com `tauri-action` (dmg universal) e job semanal `cargo deny`
-- [ ] T070 [P] Ícone, metadados do bundle, `Info.plist` com descrições de uso
-- [ ] T071 Rodar roteiro do `quickstart.md` e registrar resultados
-- [ ] T072 [P] Documentação de arquitetura (diagrama hexagonal e padrões) em `docs/architecture.md`
+- [ ] T068 [P] Scan performance benchmark (1M synthetic files) and batch/throttle tuning — SC-001
+- [X] T069 [P] `.github/workflows/release.yml` with `tauri-action` (universal dmg) and a weekly audit job (`audit.yml`)
+- [ ] T070 [P] App icon, bundle metadata, `Info.plist` usage descriptions
+- [ ] T071 Run the `quickstart.md` script and record the results
+- [ ] T072 [P] Architecture documentation (hexagonal diagram and patterns) in `docs/architecture.md`
+- [X] T073 [P] Translate all documentation and specs to English (repository language rule) — branch `004-english-docs`
 
 ---
 
 ## Dependencies & Execution Order
 
 - Setup (1) → Foundational (2) → US1 (3) → {US2, US3, US4, US5}
-- US3 depende do catálogo (US1); usa avaliações (US2) quando existirem, mas funciona com
+- US3 depends on the catalogue (US1); it uses assessments (US2) when present but works with
   `Unknown`.
-- US4 e US5 reutilizam o fluxo de revisão/execução de US3 para ações destrutivas.
-- Polish após as histórias desejadas.
+- US4 and US5 reuse the US3 review/execution flow for destructive actions.
+- Polish after the desired stories.
 
 ### Parallel Opportunities
 
-- Fase 1: T004–T008 em paralelo após T002/T003.
-- Fase 2: T009–T011 (testes) em paralelo; T012/T013 em paralelo; T020–T022 em paralelo.
-- US2: T035–T039 em paralelo; T040, T041, T043, T044 em paralelo.
-- US4 e US5 podem ser desenvolvidas em paralelo após US3.
+- Phase 1: T004–T008 in parallel after T002/T003.
+- Phase 2: T009–T011 (tests) in parallel; T012/T013 in parallel; T020–T022 in parallel.
+- US2: T035–T039 in parallel; T040, T041, T043, T044 in parallel.
+- US4 and US5 can be developed in parallel after US3.
 
 ## Implementation Strategy
 
-1. **MVP**: Fases 1–3 (varredura + ranking). Validar com quickstart cenários 1–3.
-2. **+US2**: risco com heurística primeiro, depois IA.
-3. **+US3**: exclusão segura — primeira versão que realmente libera espaço.
-4. **+US4, +US5**: visões especializadas.
-5. Commits pequenos por tarefa/grupo, CI verde a cada push.
+1. **MVP**: phases 1–3 (scan + ranking). Validate with quickstart scenarios 1–3.
+2. **+US2**: risk with heuristics first, then AI.
+3. **+US3**: safe deletion — the first version that actually frees space.
+4. **+US4, +US5**: specialised views.
+5. Small commits per task/group, CI green on every push.
