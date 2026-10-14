@@ -26,6 +26,8 @@ Guidance for AI agents working in this repository.
 - `npm run check && npm test` — frontend gates
 - `cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` — Rust gates
 - `npm run gen:types` — regenerate `src/types/generated` after changing `src-tauri/src/dto.rs`
+- `npm run release -- x.y.z` — bump versions, regenerate `CHANGELOG.md`, commit and tag (from
+  `main`, only when the user asks for a release); pushing the tag publishes it on GitHub
 
 ## Conventions
 
@@ -33,4 +35,4 @@ Guidance for AI agents working in this repository.
   Integration test files start with `#![allow(clippy::unwrap_used, clippy::expect_used)]`.
 - Never edit an applied SQL migration; add `V00N__*.sql` and register it in `db/mod.rs`.
 - UI strings live in `src/i18n/` (`en-US.ts` is the reference schema; keep `pt-BR.ts` in sync).
-- Conventional Commits.
+- Conventional Commits: they become the release notes (`cliff.toml`), so write them for users.

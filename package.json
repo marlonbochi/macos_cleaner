@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "release": "node scripts/release/release.mjs",
     "gen:types": "cargo test -p macos-cleaner --lib export_bindings"
   },
   "dependencies": {

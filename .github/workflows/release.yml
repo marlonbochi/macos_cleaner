@@ -1,5 +1,7 @@
 name: Release
 
+# Pushing a version tag (created by `npm run release -- x.y.z`) builds the app on GitHub and
+# publishes a GitHub Release with the release notes and the .dmg attached.
 on:
   push:
     tags: ["v*"]
@@ -8,26 +10,62 @@ permissions:
   contents: write
 
 jobs:
+  ci:
+    name: Quality gates
+    uses: ./.github/workflows/ci.yml
+
   release:
+    name: Build and publish
+    needs: ci
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
+          fetch-depth: 0 # the release notes need the whole history and tags
+
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
+
+      - name: Check that the tag matches the app version
+        run: node scripts/release/check-version.mjs "$GITHUB_REF_NAME"
+
+      - name: Generate release notes
+        id: notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip all
+        env:
+          OUTPUT: release-notes.md
+
+      - name: Add installation notes
+        id: body
+        run: |
+          {
+            echo "text<<RELEASE_BODY_EOF"
+            cat release-notes.md
+            echo
+            cat .github/release-install.md
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
       - run: npm ci
-      # Unsigned universal build. To sign and notarize, add the APPLE_* secrets
-      # documented at https://v2.tauri.app/distribute/sign/macos/.
-      - uses: tauri-apps/tauri-action@v0
+
+      # Unsigned universal build (Apple Silicon and Intel). To sign and notarize, add the APPLE_*
+      # secrets documented at https://v2.tauri.app/distribute/sign/macos/.
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: macOS Cleaner ${{ github.ref_name }}
-          releaseDraft: true
+          releaseBody: ${{ steps.body.outputs.text }}
+          releaseDraft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           args: --target universal-apple-darwin --bundles dmg
