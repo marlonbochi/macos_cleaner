@@ -1,0 +1,25 @@
+[package]
+name = "cleaner-infra"
+description = "Adapters (filesystem, SQLite, AI providers, macOS) for macOS Cleaner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+cleaner-core.workspace = true
+jwalk = "0.9.0"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite_migration = "2.5.0"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+cleaner-core = { workspace = true, features = ["testing"] }
+tempfile = "3.27.0"
+
+[lints]
+workspace = true

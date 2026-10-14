@@ -1,0 +1,24 @@
+[package]
+name = "cleaner-core"
+description = "Domain model, use cases and ports for macOS Cleaner (no I/O)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[features]
+# Exposes in-memory fakes of every port so other crates can use them in tests.
+testing = []
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+proptest = "1.11.0"

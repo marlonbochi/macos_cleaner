@@ -21,3 +21,8 @@ coverage/
 
 # Claude Code local settings (may contain personal data)
 .claude/settings.local.json
+dist-ssr
+*.local
+.vscode/*
+!.vscode/extensions.json
+.idea
