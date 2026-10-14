@@ -1,8 +1,10 @@
 //! SQLite persistence: connection management, migrations and repository adapters.
 
+mod assessment_repository;
 mod convert;
 mod file_entry_repository;
 mod scan_repository;
+mod settings_repository;
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
@@ -11,12 +13,17 @@ use cleaner_core::error::RepoError;
 use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
 
+pub use assessment_repository::SqliteAssessmentRepository;
 pub use file_entry_repository::SqliteFileEntryRepository;
 pub use scan_repository::SqliteScanRepository;
+pub use settings_repository::SqliteSettingsRepository;
 
 /// Ordered list of schema migrations. Append only.
 fn migrations() -> Migrations<'static> {
-    Migrations::new(vec![M::up(include_str!("migrations/V001__initial.sql"))])
+    Migrations::new(vec![
+        M::up(include_str!("migrations/V001__initial.sql")),
+        M::up(include_str!("migrations/V002__assessment_details.sql")),
+    ])
 }
 
 /// Owns the SQLite connections.

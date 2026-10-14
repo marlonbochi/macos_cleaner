@@ -1,5 +1,9 @@
 //! Thin wrappers around macOS system facilities.
 
+mod keychain;
+
+pub use keychain::KeychainSecretStore;
+
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;

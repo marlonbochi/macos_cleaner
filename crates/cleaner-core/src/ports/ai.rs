@@ -9,6 +9,8 @@ use crate::domain::ai::AiSettings;
 pub enum AiError {
     #[error("AI provider is not configured")]
     NotConfigured,
+    #[error("invalid AI configuration: {0}")]
+    InvalidConfig(String),
     #[error("missing API key for {0}")]
     MissingApiKey(&'static str),
     #[error("the provider rejected the API key")]

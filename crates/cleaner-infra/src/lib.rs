@@ -3,6 +3,7 @@
 //! Adapters implementing the `cleaner-core` ports: filesystem scanning, SQLite persistence,
 //! AI providers and macOS integrations.
 
+pub mod ai;
 pub mod db;
 pub mod fs;
 pub mod macos;
