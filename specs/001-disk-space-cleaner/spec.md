@@ -161,9 +161,8 @@ como disponível na nuvem.
 4. **Given** nenhum serviço de nuvem instalado, **When** a visão é aberta, **Then** o app informa
    que nenhum provedor foi detectado.
 5. **Given** arquivos grandes fora das pastas de nuvem, **When** a visão é aberta,
-   **Then** [NEEDS CLARIFICATION: o app deve sugerir mover arquivos locais para dentro de uma
-   pasta de nuvem para depois liberá-los, ou atuar somente sobre arquivos que já estão em pastas
-   de nuvem?]
+   **Then** eles não aparecem na visão de nuvem; o app atua somente sobre arquivos que já estão
+   em pastas de nuvem e não move arquivos para dentro delas.
 
 ---
 
@@ -221,10 +220,9 @@ como disponível na nuvem.
 - **FR-016**: O sistema MUST classificar como "Perigoso" e bloquear para exclusão itens em locais
   protegidos do sistema, independentemente da avaliação da IA.
 - **FR-017**: O usuário MUST poder configurar o provedor de IA e suas credenciais, que devem ser
-  guardadas de forma segura pelo sistema operacional. Provedores suportados:
-  [NEEDS CLARIFICATION: a IA deve ser um serviço na nuvem (ex.: Claude/OpenAI, via chave do
-  usuário), um modelo local rodando na máquina (ex.: Ollama), ou ambos com escolha nas
-  configurações?]
+  guardadas de forma segura pelo sistema operacional. O usuário MUST poder escolher entre um
+  provedor de IA na nuvem (usando a própria chave de acesso) e um modelo de IA executado
+  localmente na máquina, ou nenhum (somente regras locais).
 
 **Exclusão**
 
@@ -312,3 +310,12 @@ como disponível na nuvem.
 - Interface em português do Brasil na v1, preparada para internacionalização.
 - Não-objetivos da v1: Windows/Linux, limpeza automática agendada, detecção de arquivos
   duplicados por conteúdo.
+
+## Clarifications
+
+### Session 2026-10-14
+
+- Q: A IA deve ser um serviço na nuvem, um modelo local ou ambos? → A: Ambos, com escolha nas
+  configurações (além da opção "somente regras locais").
+- Q: O offload para nuvem deve sugerir mover arquivos locais para pastas de nuvem? → A: Não; atua
+  somente sobre arquivos que já estão em pastas de nuvem.

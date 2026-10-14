@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,9 +31,5 @@
 
 ## Notes
 
-- 2 [NEEDS CLARIFICATION] markers pending user input:
-  - FR-017: provedor de IA (nuvem, local ou ambos).
-  - User Story 5, cenário 5: escopo do offload para nuvem.
-- Provider names (Claude/OpenAI/Ollama) appear only as examples inside the clarification question
-  and will be removed from the spec once answered.
-- Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
+- Clarifications resolved on 2026-10-14 (FR-017: cloud + local AI; US5: only files already in
+  cloud folders). All items pass; ready for `/speckit-plan`.
