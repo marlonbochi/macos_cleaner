@@ -67,6 +67,12 @@ manter, revisar), passos e comandos sugeridos com botão de copiar.
 - **FR-037**: Regras locais conhecidas como essenciais MUST impedir que a IA rebaixe o item
   abaixo de "Atenção".
 
+- **FR-038** *(2026-10-14)*: O modelo MUST ser escolhido numa lista obtida da API do provedor
+  com a chave do usuário (só modelos de texto); salvar exige um modelo da lista.
+- **FR-039** *(2026-10-14)*: A URL do servidor MUST usar a oficial por padrão (personalizada só em
+  "Avançado"); URLs são validadas (http/https, sem credenciais/query) e provedores com chave exigem
+  HTTPS, exceto servidores locais.
+
 ## Success Criteria *(mandatory)*
 
 - **SC-201**: Configurar um provedor e obter a primeira análise leva menos de 2 minutos.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import { useAiSettingsStore } from "@/stores/aiSettings";
 import type { AiProviderIdDto } from "@/types/generated/AiProviderIdDto";
 
@@ -7,9 +7,20 @@ const ai = useAiSettingsStore();
 
 onMounted(() => void ai.load());
 
+const isOllama = computed(() => ai.form.provider === "ollama");
+const showUrl = computed(() => isOllama.value || ai.form.customUrl);
+
 function onProviderChange(event: Event): void {
   const value = (event.target as HTMLSelectElement).value;
-  ai.selectProvider(value === "" ? null : (value as AiProviderIdDto));
+  void ai.selectProvider(value === "" ? null : (value as AiProviderIdDto));
+}
+
+function onUrlInput(event: Event): void {
+  ai.setBaseUrl((event.target as HTMLInputElement).value);
+}
+
+function onCustomUrl(event: Event): void {
+  ai.setCustomUrl((event.target as HTMLInputElement).checked);
 }
 </script>
 
@@ -62,39 +73,90 @@ function onProviderChange(event: Event): void {
         </div>
 
         <div class="field">
-          <label for="model">{{ $t("settings.model") }}</label>
+          <label for="base-url">{{ $t("settings.baseUrl") }}</label>
+          <label v-if="!isOllama" class="check">
+            <input
+              type="checkbox"
+              data-test="custom-url"
+              :checked="ai.form.customUrl"
+              @change="onCustomUrl"
+            />
+            {{ $t("settings.customUrl") }}
+          </label>
           <input
-            id="model"
-            v-model="ai.form.model"
+            v-if="showUrl"
+            id="base-url"
+            :value="ai.form.baseUrl"
             spellcheck="false"
-            :placeholder="ai.providerInfo.defaultModel"
+            :placeholder="ai.providerInfo.defaultBaseUrl"
+            @input="onUrlInput"
           />
           <small class="muted">
-            {{ $t("settings.modelHelp", { model: ai.providerInfo.defaultModel }) }}
+            {{
+              isOllama
+                ? $t("settings.baseUrlHelp", { url: ai.providerInfo.defaultBaseUrl })
+                : !ai.form.customUrl
+                  ? $t("settings.officialUrl", { url: ai.providerInfo.defaultBaseUrl })
+                  : ""
+            }}
           </small>
         </div>
 
         <div class="field">
-          <label for="base-url">{{ $t("settings.baseUrl") }}</label>
-          <input
-            id="base-url"
-            v-model="ai.form.baseUrl"
-            spellcheck="false"
-            :placeholder="ai.providerInfo.defaultBaseUrl"
-          />
-          <small class="muted">
-            {{ $t("settings.baseUrlHelp", { url: ai.providerInfo.defaultBaseUrl }) }}
+          <label for="model">{{ $t("settings.model") }}</label>
+          <div class="row">
+            <select
+              id="model"
+              v-model="ai.form.model"
+              :disabled="!ai.modelsCurrent || ai.modelsLoading || ai.models.length === 0"
+            >
+              <option value="" disabled>{{ $t("settings.modelPlaceholder") }}</option>
+              <option v-for="m in ai.models" :key="m.id" :value="m.id">
+                {{ m.label === m.id ? m.id : `${m.label} — ${m.id}` }}
+                {{
+                  m.id === ai.providerInfo.defaultModel ? `(${$t("settings.modelDefault")})` : ""
+                }}
+              </option>
+            </select>
+            <button
+              :disabled="ai.modelsLoading || !ai.hasKey"
+              data-test="load-models"
+              @click="ai.fetchModels"
+            >
+              {{ ai.modelsCurrent ? $t("settings.reloadModels") : $t("settings.loadModels") }}
+            </button>
+          </div>
+          <small v-if="ai.modelsLoading" class="muted">{{ $t("settings.modelsLoading") }}</small>
+          <small v-else-if="ai.modelsError" class="error" data-test="models-error">
+            {{ $t("settings.modelsError", { message: ai.modelsError }) }}
+          </small>
+          <small v-else-if="!ai.hasKey" class="muted" data-test="models-need-key">
+            {{ $t("settings.modelsNeedKey") }}
+          </small>
+          <small v-else-if="!ai.modelsCurrent" class="muted">
+            {{ $t("settings.modelsNeedLoad") }}
+          </small>
+          <small v-else-if="ai.models.length === 0" class="muted" data-test="models-empty">
+            {{ isOllama ? $t("settings.modelsEmptyOllama") : $t("settings.modelsEmpty") }}
+          </small>
+          <small v-if="ai.savedModelMissing" class="warning-text" data-test="saved-model-missing">
+            {{ $t("settings.savedModelMissing", { model: ai.saved?.model }) }}
           </small>
         </div>
       </template>
 
       <div class="row actions">
-        <button class="primary" :disabled="ai.saving" data-test="save" @click="ai.save()">
+        <button
+          class="primary"
+          :disabled="ai.saving || !ai.canSave"
+          data-test="save"
+          @click="ai.save()"
+        >
           {{ $t("settings.save") }}
         </button>
         <button
           v-if="ai.form.provider"
-          :disabled="ai.testing || ai.saving"
+          :disabled="ai.testing || ai.saving || !ai.canSave"
           data-test="test"
           @click="ai.test"
         >
@@ -126,15 +188,24 @@ function onProviderChange(event: Event): void {
   flex-direction: column;
   gap: 0.25rem;
   margin: 0.9rem 0;
-  max-width: 560px;
+  max-width: 620px;
 }
 
-.field .row input {
+.field .row input,
+.field .row select {
   flex: 1;
+  min-width: 0;
 }
 
 label {
   font-weight: 500;
+}
+
+label.check {
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .actions {
@@ -144,5 +215,9 @@ label {
 .success {
   color: var(--success);
   margin-top: 0.75rem;
+}
+
+.warning-text {
+  color: var(--warning);
 }
 </style>

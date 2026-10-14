@@ -1,3 +1,5 @@
+import type { AiModelDto } from "@/types/generated/AiModelDto";
+import type { AiProviderIdDto } from "@/types/generated/AiProviderIdDto";
 import type { AiSettingsDto } from "@/types/generated/AiSettingsDto";
 import type { AnalysisDto } from "@/types/generated/AnalysisDto";
 import type { ConnectionTestDto } from "@/types/generated/ConnectionTestDto";
@@ -122,6 +124,15 @@ export class SettingsApi {
 
   saveAi(input: SaveAiSettingsInput): Promise<AiSettingsDto> {
     return this.transport.invoke("save_ai_settings", { input });
+  }
+
+  /** Models the typed (or stored) key can use. The typed key is not saved. */
+  models(
+    provider: AiProviderIdDto,
+    baseUrl: string | null,
+    apiKey: string | null,
+  ): Promise<AiModelDto[]> {
+    return this.transport.invoke("list_ai_models", { provider, baseUrl, apiKey });
   }
 
   testAi(): Promise<ConnectionTestDto> {

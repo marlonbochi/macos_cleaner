@@ -34,7 +34,8 @@ function backend(latest: ScanSummaryDto | null = scanSummary({ id: 3 })) {
     .on("analyze_files", (args) =>
       (args.fileIds as number[]).map((fileId) => analysis({ fileId, level: "Safe" })),
     )
-    .on("get_ai_settings", () => aiSettings());
+    .on("get_ai_settings", () => aiSettings())
+    .on("list_ai_models", () => []);
   provideApi(transport);
   return transport;
 }
