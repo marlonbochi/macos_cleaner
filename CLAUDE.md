@@ -32,5 +32,5 @@ Guidance for AI agents working in this repository.
 - Rust: `unwrap`/`expect`/`panic` are denied outside tests; errors use `thiserror`.
   Integration test files start with `#![allow(clippy::unwrap_used, clippy::expect_used)]`.
 - Never edit an applied SQL migration; add `V00N__*.sql` and register it in `db/mod.rs`.
-- UI strings live in `src/i18n/pt-BR.ts`.
+- UI strings live in `src/i18n/` (`en-US.ts` is the reference schema; keep `pt-BR.ts` in sync).
 - Conventional Commits.
