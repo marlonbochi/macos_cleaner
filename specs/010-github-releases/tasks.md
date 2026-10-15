@@ -6,4 +6,6 @@
 - [X] R004 `cliff.toml`: notes grouped by type with commit links
 - [X] R005 `release.yml`: CI gates (`workflow_call`), version check, notes + install steps, universal `.dmg`, tauri-action v1
 - [X] R006 README "Releases" section and CLAUDE.md command
-- [ ] R007 First release `v0.1.0` (after merging 009 and 010 into `main`, on the user's approval)
+- [X] R007 First release `v0.1.0` (after merging 009 and 010 into `main`, on the user's approval)
+- [X] R008 Ad-hoc sign the whole bundle (`signingIdentity: "-"`) so a downloaded copy offers "Open Anyway" instead of "damaged"; CI verifies the signature inside the `.dmg`
+- [ ] R009 Developer ID signing and notarization (needs an Apple Developer Program account and `APPLE_*` secrets)

@@ -39,7 +39,8 @@
     "category": "public.app-category.utilities",
     "shortDescription": "Find and safely free up disk space",
     "macOS": {
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-"
     }
   }
 }

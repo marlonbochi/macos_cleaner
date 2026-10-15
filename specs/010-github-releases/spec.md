@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-14
 
-**Status**: Implemented (first release pending)
+**Status**: Implemented (`v0.1.0` published)
 
 **Input**: User description (translated from Portuguese): "Use GitHub Releases for the app: show
 what changed from version to version and link the built app for download, built on GitHub instead
@@ -40,5 +40,7 @@ created. Pushing them starts the release workflow.
   commits are excluded.
 - **FR-1002**: The build MUST happen on GitHub (`macos-latest`), universal (`aarch64` + `x86_64`).
 - **FR-1003**: The release MUST NOT be published when any CI gate fails or versions disagree.
+- **FR-1005**: Until the app is notarized, the whole bundle MUST carry a valid ad-hoc signature so
+  macOS offers "Open Anyway" for downloaded copies.
 - **FR-1004**: The release body MUST include installation steps for an unsigned app and how to
   uninstall it.
