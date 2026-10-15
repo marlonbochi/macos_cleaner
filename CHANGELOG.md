@@ -1,8 +1,30 @@
 # Changelog
 
-All notable changes to macOS Cleaner. Generated from the commit history by
+All notable changes to Disk Cleaner. Generated from the commit history by
 [git-cliff](https://git-cliff.org); each version is also published as a
 [GitHub Release](https://github.com/marlonbochi/macos_cleaner/releases) with the app attached.
+
+## [0.2.0](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.2.0) — 2026-10-15
+
+### Features
+
+- Rename the app to Disk Cleaner and migrate data from macOS Cleaner ([25db7c4](https://github.com/marlonbochi/macos_cleaner/commit/25db7c447e7a0d2d7e348dbf32bc0a08186f8063))
+- **core:** Platform-aware protected paths, local rules and AI prompt ([6c23381](https://github.com/marlonbochi/macos_cleaner/commit/6c233810ddd235b680c90def475e356c3f3b5e22))
+- Run on Windows and Linux (Debian) as well as macOS ([394a802](https://github.com/marlonbochi/macos_cleaner/commit/394a8027978867c70a1ed4b84e68481b4a0ce5e2))
+
+### Bug fixes
+
+- **infra:** Select the COM threading model the trash crate needs on Windows ([9335ed9](https://github.com/marlonbochi/macos_cleaner/commit/9335ed97875546c1e3735fd0230576d90f0295f2))
+
+### Tests
+
+- Run POSIX-path fixtures only on Unix, add Windows path tests ([dc3dbe6](https://github.com/marlonbochi/macos_cleaner/commit/dc3dbe6b56862af9ced46302b15fb34c37ae1b7a))
+- Keep the proptest import inside the Unix-only properties module ([35f0d25](https://github.com/marlonbochi/macos_cleaner/commit/35f0d25d9d7d9655fab69c1f5aac56f44f0222da))
+
+### Maintenance
+
+- **release:** Build and publish the .dmg, Windows installer and .deb together ([8eeb6ff](https://github.com/marlonbochi/macos_cleaner/commit/8eeb6ff587f75dcab2ff8e8b6a13ec979eef3b08))
+- Report every clippy and test failure in a single run ([f426ee6](https://github.com/marlonbochi/macos_cleaner/commit/f426ee643282330409c17292567ea1a61b48d0d5))
 
 ## [0.1.1](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.1.1) — 2026-10-15
 

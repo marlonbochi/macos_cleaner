@@ -608,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "cleaner-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "serde",
@@ -619,7 +619,7 @@ dependencies = [
 
 [[package]]
 name = "cleaner-infra"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "cleaner-core",
  "jwalk",
@@ -1012,7 +1012,7 @@ dependencies = [
 
 [[package]]
 name = "disk-cleaner"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "cleaner-core",
  "cleaner-infra",
