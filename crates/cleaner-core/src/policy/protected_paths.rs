@@ -277,7 +277,6 @@ fn strip_trailing_curdir(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
 
     fn policy() -> ProtectedPathPolicy {
         ProtectedPathPolicy::macos_default(
@@ -424,6 +423,7 @@ mod tests {
     #[cfg(unix)]
     mod posix_properties {
         use super::*;
+        use proptest::prelude::*;
 
         proptest! {
             #[test]
