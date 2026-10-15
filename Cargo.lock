@@ -416,7 +416,7 @@ dependencies = [
 
 [[package]]
 name = "cleaner-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "proptest",
  "serde",
@@ -427,7 +427,7 @@ dependencies = [
 
 [[package]]
 name = "cleaner-infra"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cleaner-core",
  "jwalk",
@@ -2026,7 +2026,7 @@ checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 
 [[package]]
 name = "macos-cleaner"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cleaner-core",
  "cleaner-infra",

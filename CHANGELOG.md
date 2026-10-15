@@ -4,6 +4,12 @@ All notable changes to macOS Cleaner. Generated from the commit history by
 [git-cliff](https://git-cliff.org); each version is also published as a
 [GitHub Release](https://github.com/marlonbochi/macos_cleaner/releases) with the app attached.
 
+## [0.1.1](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.1.1) — 2026-10-15
+
+### Bug fixes
+
+- **release:** Ad-hoc sign the whole app bundle so macOS offers "Open Anyway" ([4dc7659](https://github.com/marlonbochi/macos_cleaner/commit/4dc7659fdc3e76ff46bf8418af9f91d5207ebaf5))
+
 ## [0.1.0](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.1.0) — 2026-10-15
 
 ### Features
