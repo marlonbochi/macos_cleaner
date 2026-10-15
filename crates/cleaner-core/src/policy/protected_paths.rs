@@ -304,11 +304,13 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn usr_local_is_an_exception() {
         assert!(!policy().is_protected(Path::new("/usr/local/Cellar/big-formula")));
     }
 
+    #[cfg(unix)]
     #[test]
     fn top_level_user_folders_are_protected_but_not_their_contents() {
         let p = policy();
@@ -328,6 +330,7 @@ mod tests {
         )));
     }
 
+    #[cfg(unix)]
     #[test]
     fn prefix_match_is_component_based() {
         let p = policy();
@@ -417,24 +420,30 @@ mod tests {
         }
     }
 
-    proptest! {
-        #[test]
-        fn anything_below_system_is_protected(segments in prop::collection::vec("[a-zA-Z0-9 ._-]{1,12}", 0..6)) {
-            let mut path = PathBuf::from("/System");
-            for s in &segments { path.push(s); }
-            prop_assert!(policy().is_protected(&path));
-        }
+    /// macOS policy properties (POSIX paths).
+    #[cfg(unix)]
+    mod posix_properties {
+        use super::*;
 
-        #[test]
-        fn any_path_with_parent_component_is_protected(prefix in "[a-z]{1,8}", suffix in "[a-z]{1,8}") {
-            let path = PathBuf::from(format!("/Users/alice/{prefix}/../{suffix}"));
-            prop_assert!(policy().is_protected(&path));
-        }
+        proptest! {
+            #[test]
+            fn anything_below_system_is_protected(segments in prop::collection::vec("[a-zA-Z0-9 ._-]{1,12}", 0..6)) {
+                let mut path = PathBuf::from("/System");
+                for s in &segments { path.push(s); }
+                prop_assert!(policy().is_protected(&path));
+            }
 
-        #[test]
-        fn files_inside_downloads_are_not_protected(name in "[a-zA-Z0-9_-]{1,20}\\.(zip|dmg|mov)") {
-            let path = PathBuf::from("/Users/alice/Downloads").join(name);
-            prop_assert!(!policy().is_protected(&path));
+            #[test]
+            fn any_path_with_parent_component_is_protected(prefix in "[a-z]{1,8}", suffix in "[a-z]{1,8}") {
+                let path = PathBuf::from(format!("/Users/alice/{prefix}/../{suffix}"));
+                prop_assert!(policy().is_protected(&path));
+            }
+
+            #[test]
+            fn files_inside_downloads_are_not_protected(name in "[a-zA-Z0-9_-]{1,20}\\.(zip|dmg|mov)") {
+                let path = PathBuf::from("/Users/alice/Downloads").join(name);
+                prop_assert!(!policy().is_protected(&path));
+            }
         }
     }
 }

@@ -391,7 +391,10 @@ fn apply_safety_floor(mut ai: Verdict, rules: &Verdict, locale: Locale) -> Verdi
     ai
 }
 
+// Fixtures use POSIX paths, which are not absolute on Windows. The logic under test does not
+// depend on the system; Windows paths are covered by the platform-specific tests.
 #[cfg(test)]
+#[cfg(unix)]
 mod tests {
     use super::*;
     use crate::domain::ai::{AiProviderKind, AiSettings};

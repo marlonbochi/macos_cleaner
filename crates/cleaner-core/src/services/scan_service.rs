@@ -376,7 +376,10 @@ fn bare_dir(path: PathBuf) -> ScannedEntry {
     }
 }
 
+// Fixtures use POSIX paths, which are not absolute on Windows. The logic under test does not
+// depend on the system; Windows paths are covered by the platform-specific tests.
 #[cfg(test)]
+#[cfg(unix)]
 mod tests {
     use super::*;
     use crate::domain::scan::ScanStatus;

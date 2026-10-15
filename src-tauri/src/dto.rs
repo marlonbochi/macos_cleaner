@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn scan_summary_flags_cancelled_as_incomplete() {
-        let new = NewScan::new(vec!["/a".into()], ByteSize::ZERO, 1).unwrap();
+        let new = NewScan::new(vec![std::env::temp_dir()], ByteSize::ZERO, 1).unwrap();
         let mut scan = Scan::start(ScanId(3), new);
         assert!(
             !ScanSummaryDto::from(&scan).incomplete,

@@ -42,7 +42,8 @@ fn record(path: &str, kind: FileKind, size: u64, modified: i64) -> FileRecord {
 
 fn new_scan(started_at: i64) -> NewScan {
     NewScan::new(
-        vec![PathBuf::from("/tmp")],
+        // An absolute root on the system running the tests.
+        vec![std::env::temp_dir()],
         ByteSize::from_mb(100),
         started_at,
     )

@@ -108,6 +108,7 @@ mod tests {
         FootprintLocation::new(kind, PathBuf::from(path), ID)
     }
 
+    #[cfg(unix)]
     #[test]
     fn accepts_locations_named_after_the_bundle_id() {
         for (kind, path) in [
@@ -138,6 +139,25 @@ mod tests {
         }
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn accepts_windows_locations_named_after_the_bundle_id() {
+        for (kind, path) in [
+            (
+                FootprintKind::AppData,
+                r"C:\Users\a\AppData\Roaming\com.example.cleaner",
+            ),
+            (
+                FootprintKind::Cache,
+                r"C:\Users\a\AppData\Local\com.example.cleaner",
+            ),
+        ] {
+            assert!(location(kind, path).is_ok(), "{path}");
+        }
+        assert!(location(FootprintKind::Cache, r"C:\Users\a\AppData\Local").is_err());
+    }
+
+    #[cfg(unix)]
     #[test]
     fn rejects_anything_else() {
         for (kind, path) in [

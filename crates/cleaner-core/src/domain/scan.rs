@@ -160,15 +160,20 @@ mod tests {
     use super::*;
 
     fn running() -> Scan {
-        let new = NewScan::new(vec![PathBuf::from("/tmp")], ByteSize::from_mb(100), 1).unwrap();
+        let new = NewScan::new(vec![absolute_root()], ByteSize::from_mb(100), 1).unwrap();
         Scan::start(ScanId(1), new)
+    }
+
+    /// An absolute path on the system running the tests.
+    fn absolute_root() -> PathBuf {
+        PathBuf::from(if cfg!(windows) { r"C:\scan" } else { "/scan" })
     }
 
     #[test]
     fn new_scan_requires_at_least_one_absolute_root() {
         assert!(NewScan::new(vec![], ByteSize::ZERO, 0).is_err());
         assert!(NewScan::new(vec![PathBuf::from("relative")], ByteSize::ZERO, 0).is_err());
-        assert!(NewScan::new(vec![PathBuf::from("/abs")], ByteSize::ZERO, 0).is_ok());
+        assert!(NewScan::new(vec![absolute_root()], ByteSize::ZERO, 0).is_ok());
     }
 
     #[test]
