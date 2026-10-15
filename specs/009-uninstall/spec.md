@@ -18,7 +18,7 @@ of the uninstall."
 In Settings, the user clicks "Uninstall…". A dialog lists every item that will be removed (data,
 caches, web view data, preferences, the app itself) with sizes, plus the API keys stored in the
 Keychain. The "Uninstall" button stays disabled until the user types the exact phrase
-`macOS Cleaner`. After confirming, the keys are deleted, everything goes to the Trash and the app
+`Disk Cleaner`. After confirming, the keys are deleted, everything goes to the Trash and the app
 quits.
 
 **Acceptance Scenarios**:

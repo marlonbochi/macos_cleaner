@@ -14,7 +14,7 @@ use crate::ports::ai::SecretStore;
 use crate::ports::system::{DiskUsage, Trash};
 
 /// What the user must type to confirm the uninstall.
-pub const CONFIRMATION_PHRASE: &str = "macOS Cleaner";
+pub const CONFIRMATION_PHRASE: &str = "Disk Cleaner";
 
 /// Everything a complete uninstall would remove right now.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -256,7 +256,7 @@ mod tests {
     #[test]
     fn nothing_happens_without_the_exact_confirmation() {
         let (service, disk, secrets) = setup(None);
-        for typed in ["", "macos cleaner", "yes", "macOS Cleaner please"] {
+        for typed in ["", "disk cleaner", "yes", "Disk Cleaner please"] {
             assert!(matches!(
                 service.uninstall(typed),
                 Err(CoreError::Domain(DomainError::InvalidInput(_)))
@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn removes_keys_and_trashes_everything_bundle_last() {
         let (service, disk, secrets) = setup(None);
-        let report = service.uninstall(" macOS Cleaner ").unwrap();
+        let report = service.uninstall(" Disk Cleaner ").unwrap();
 
         assert_eq!(report.keys_removed, 1);
         assert!(report.failures.is_empty());

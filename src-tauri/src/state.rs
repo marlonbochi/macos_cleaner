@@ -26,6 +26,8 @@ use cleaner_infra::macos::{self, KeychainSecretStore, MacTrash};
 use crate::error::{AppError, ErrorCode};
 
 const CATALOG_FILE: &str = "catalog.sqlite3";
+/// Identifier of the app before it was renamed to Disk Cleaner (v0.1.x, "macOS Cleaner").
+const LEGACY_BUNDLE_ID: &str = "com.marlonbochi.macoscleaner";
 
 #[derive(Debug)]
 pub struct AppState {
@@ -53,6 +55,7 @@ struct RunningScan {
 impl AppState {
     /// Composition root: wires adapters into the core services (dependency injection by hand).
     pub fn build(app_data_dir: &Path, home: PathBuf, bundle_id: &str) -> Result<Self, AppError> {
+        adopt_legacy_data(app_data_dir);
         let db = Arc::new(
             Database::open(&app_data_dir.join(CATALOG_FILE))
                 .map_err(|e| AppError::new(ErrorCode::Storage, e.to_string()))?,
@@ -77,6 +80,15 @@ impl AppState {
             secrets.clone(),
             Arc::new(HttpAiProviderFactory::default()),
         );
+        match ai_settings.import_api_keys(&KeychainSecretStore::new(LEGACY_BUNDLE_ID)) {
+            Ok(0) => {}
+            Ok(imported) => {
+                tracing::info!(imported, "imported API keys from the previous app name");
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "could not import API keys from the previous app name");
+            }
+        }
         let uninstall = UninstallService::new(
             footprint_locations(app_data_dir, &home, bundle_id),
             Arc::new(StdDiskUsage),
@@ -110,46 +122,82 @@ impl AppState {
     }
 }
 
-/// Every place the app may leave data, for a complete uninstall (feature 009).
-/// Locations that fail validation are left out rather than risk removing something else.
+/// Keeps the catalogue and settings of users upgrading from the previous app name.
+fn adopt_legacy_data(app_data_dir: &Path) {
+    let legacy = app_data_dir.with_file_name(LEGACY_BUNDLE_ID);
+    match cleaner_infra::fs::adopt_legacy_dir(&legacy, app_data_dir) {
+        Ok(true) => {
+            tracing::info!(from = %legacy.display(), "adopted data from the previous app name");
+        }
+        Ok(false) => {}
+        Err(e) => tracing::warn!(error = %e, "could not adopt data from the previous app name"),
+    }
+}
+
+/// Every place the app may leave data, for a complete uninstall (feature 009), including what
+/// the app left under its previous name. Locations that fail validation are left out rather
+/// than risk removing something else.
 fn footprint_locations(
     app_data_dir: &Path,
     home: &Path,
     bundle_id: &str,
 ) -> Vec<FootprintLocation> {
     let library = home.join("Library");
-    let mut candidates = vec![
-        (FootprintKind::AppData, app_data_dir.to_path_buf()),
-        (FootprintKind::Cache, library.join("Caches").join(bundle_id)),
+    let mut candidates: Vec<(FootprintKind, PathBuf, &str)> = vec![
         (
-            FootprintKind::WebData,
-            library.join("WebKit").join(bundle_id),
+            FootprintKind::AppData,
+            app_data_dir.to_path_buf(),
+            bundle_id,
         ),
         (
-            FootprintKind::HttpStorage,
-            library.join("HTTPStorages").join(bundle_id),
-        ),
-        (FootprintKind::Logs, library.join("Logs").join(bundle_id)),
-        (
-            FootprintKind::Preferences,
-            library
-                .join("Preferences")
-                .join(format!("{bundle_id}.plist")),
-        ),
-        (
-            FootprintKind::SavedState,
-            library
-                .join("Saved Application State")
-                .join(format!("{bundle_id}.savedState")),
+            FootprintKind::Legacy,
+            app_data_dir.with_file_name(LEGACY_BUNDLE_ID),
+            LEGACY_BUNDLE_ID,
         ),
     ];
+    for (id, legacy) in [(bundle_id, false), (LEGACY_BUNDLE_ID, true)] {
+        let kind = |k| if legacy { FootprintKind::Legacy } else { k };
+        candidates.extend([
+            (
+                kind(FootprintKind::Cache),
+                library.join("Caches").join(id),
+                id,
+            ),
+            (
+                kind(FootprintKind::WebData),
+                library.join("WebKit").join(id),
+                id,
+            ),
+            (
+                kind(FootprintKind::HttpStorage),
+                library.join("HTTPStorages").join(id),
+                id,
+            ),
+            (kind(FootprintKind::Logs), library.join("Logs").join(id), id),
+            (
+                kind(FootprintKind::Preferences),
+                library.join("Preferences").join(format!("{id}.plist")),
+                id,
+            ),
+            (
+                kind(FootprintKind::SavedState),
+                library
+                    .join("Saved Application State")
+                    .join(format!("{id}.savedState")),
+                id,
+            ),
+        ]);
+    }
+    if let Some(app) = macos::installed_app_bundle(LEGACY_BUNDLE_ID) {
+        candidates.push((FootprintKind::Legacy, app, LEGACY_BUNDLE_ID));
+    }
     if let Some(app) = macos::running_app_bundle(bundle_id) {
-        candidates.push((FootprintKind::AppBundle, app));
+        candidates.push((FootprintKind::AppBundle, app, bundle_id));
     }
     candidates
         .into_iter()
         .filter_map(
-            |(kind, path)| match FootprintLocation::new(kind, path, bundle_id) {
+            |(kind, path, id)| match FootprintLocation::new(kind, path, id) {
                 Ok(location) => Some(location),
                 Err(e) => {
                     tracing::warn!(error = %e, "skipping uninstall location");

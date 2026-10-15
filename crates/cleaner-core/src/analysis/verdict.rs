@@ -93,8 +93,8 @@ pub fn protected_verdict(path: &Path, locale: Locale) -> Verdict {
         },
         explanation: locale
             .pick(
-                "This item is part of the system, an essential user folder, or belongs to macOS Cleaner itself. The app never removes it.",
-                "Este item faz parte do sistema, é uma pasta essencial do usuário ou pertence ao próprio macOS Cleaner. O app nunca o remove.",
+                "This item is part of the system, an essential user folder, or belongs to Disk Cleaner itself. The app never removes it.",
+                "Este item faz parte do sistema, é uma pasta essencial do usuário ou pertence ao próprio Disk Cleaner. O app nunca o remove.",
             )
             .to_owned(),
         recommendation: Recommendation::Keep,

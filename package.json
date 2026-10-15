@@ -1,5 +1,5 @@
 {
-  "name": "macos-cleaner",
+  "name": "disk-cleaner",
   "private": true,
   "version": "0.1.1",
   "type": "module",
@@ -18,7 +18,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "release": "node scripts/release/release.mjs",
-    "gen:types": "cargo test -p macos-cleaner --lib export_bindings"
+    "gen:types": "cargo test -p disk-cleaner --lib export_bindings"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

@@ -19,7 +19,7 @@ impl JsonHttp {
     pub(crate) fn new(timeout: Duration, retries: u32, backoff: Duration) -> Result<Self, AiError> {
         let client = Client::builder()
             .timeout(timeout)
-            .user_agent(concat!("macos-cleaner/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("disk-cleaner/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|e| AiError::Network(e.to_string()))?;
         Ok(Self {

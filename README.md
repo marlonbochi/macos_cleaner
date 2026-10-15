@@ -1,6 +1,6 @@
-<p align="center"><img src="assets/icon/icon.png" alt="macOS Cleaner icon" width="128" /></p>
+<p align="center"><img src="assets/icon/icon.png" alt="Disk Cleaner icon" width="128" /></p>
 
-# macOS Cleaner
+# Disk Cleaner
 
 [![CI](https://github.com/marlonbochi/macos_cleaner/actions/workflows/ci.yml/badge.svg)](https://github.com/marlonbochi/macos_cleaner/actions/workflows/ci.yml)
 
@@ -80,7 +80,7 @@ npm ci
 npm run tauri dev
 ```
 
-To build the app (`target/release/bundle/macos/macOS Cleaner.app` and a `.dmg`):
+To build the app (`target/release/bundle/macos/Disk Cleaner.app` and a `.dmg`):
 
 ```bash
 npm run tauri build -- --bundles app,dmg
@@ -91,7 +91,7 @@ The build is unsigned: on first launch, right-click the app and choose **Open**.
 ### Full Disk Access
 
 Some folders (Mail, Safari, app containers) can only be read with Full Disk Access. The app tells
-you which app macOS expects: the **macOS Cleaner** app when running the bundle, or the terminal/IDE
+you which app macOS expects: the **Disk Cleaner** app when running the bundle, or the terminal/IDE
 that launched `npm run tauri dev`. Grant it in System Settings → Privacy & Security → Full Disk
 Access, then restart that app.
 
@@ -159,12 +159,16 @@ Versions follow [SemVer](https://semver.org) and the notes come from
 
 ## Uninstalling
 
-Use **Settings → Uninstall macOS Cleaner**. If the app was already deleted, remove its leftovers by
-hand (all named after the bundle identifier `com.marlonbochi.macoscleaner`):
+Use **Settings → Uninstall Disk Cleaner**. If the app was already deleted, remove its leftovers by
+hand (all named after the bundle identifier `com.marlonbochi.diskcleaner`):
 
-- `~/Library/Application Support/com.marlonbochi.macoscleaner` (catalogue database)
-- `~/Library/Caches/com.marlonbochi.macoscleaner` and `~/Library/WebKit/com.marlonbochi.macoscleaner`
-- Keychain Access → search for `com.marlonbochi.macoscleaner` (API keys)
+- `~/Library/Application Support/com.marlonbochi.diskcleaner` (catalogue database)
+- `~/Library/Caches/com.marlonbochi.diskcleaner` and `~/Library/WebKit/com.marlonbochi.diskcleaner`
+- Keychain Access → search for `com.marlonbochi.diskcleaner` (API keys)
+
+Versions up to 0.1.1 were called **macOS Cleaner** (`com.marlonbochi.macoscleaner`). Disk Cleaner
+adopts their catalogue, settings and API keys on first launch, and its uninstaller also removes
+anything the old version left behind, including the old app.
 
 ## License
 

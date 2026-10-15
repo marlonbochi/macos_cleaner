@@ -1,4 +1,4 @@
-//! macOS Cleaner desktop app: Tauri composition root and IPC commands.
+//! Disk Cleaner desktop app: Tauri composition root and IPC commands.
 //!
 //! This crate only wires things together. Business rules live in `cleaner-core`,
 //! I/O in `cleaner-infra` (see `specs/001-disk-space-cleaner/plan.md`).
@@ -15,7 +15,7 @@ use crate::state::AppState;
 
 fn init_tracing() {
     let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,macos_cleaner_lib=debug,cleaner_core=debug"));
+        .unwrap_or_else(|_| EnvFilter::new("info,disk_cleaner_lib=debug,cleaner_core=debug"));
     // Ignore the error if a subscriber is already installed (e.g. in tests).
     let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
 }

@@ -259,7 +259,7 @@ impl AnalysisService {
     ) -> AnalysisOutcome {
         let (name, model) = provider.descriptor();
         let rules = self.heuristics.analyze(&entry.record, locale);
-        let assessment = apply_safety_floor(verdict, &rules).into_assessment(
+        let assessment = apply_safety_floor(verdict, &rules, locale).into_assessment(
             &entry.record,
             AssessmentSource::Ai {
                 provider: name,
@@ -368,13 +368,14 @@ fn rules_version(locale: Locale) -> String {
 }
 
 /// Items the local rules know to be essential never drop below `Caution` (SC-006).
-fn apply_safety_floor(mut ai: Verdict, rules: &Verdict) -> Verdict {
+fn apply_safety_floor(mut ai: Verdict, rules: &Verdict, locale: Locale) -> Verdict {
     if rules.level == RiskLevel::Dangerous && ai.level < RiskLevel::Caution {
         ai.level = rules.level;
-        ai.explanation = format!(
-            "{} (Nível elevado pelas regras de segurança: {})",
-            ai.explanation, rules.summary
+        let note = locale.pick(
+            "Level raised by the safety rules",
+            "Nível elevado pelas regras de segurança",
         );
+        ai.explanation = format!("{} ({note}: {})", ai.explanation, rules.summary);
     }
     ai
 }
@@ -630,7 +631,20 @@ mod tests {
         enable_claude(&h);
         let out = h.service.analyze(FileId(4), false).unwrap();
         assert_eq!(out.assessment.level, RiskLevel::Dangerous);
-        assert!(out.assessment.explanation.contains("regras de segurança"));
+        assert!(
+            out.assessment
+                .explanation
+                .contains("Level raised by the safety rules")
+        );
+
+        h.prefs.set_locale(Locale::PtBr).unwrap();
+        let out = h.service.analyze(FileId(4), false).unwrap();
+        assert!(
+            out.assessment
+                .explanation
+                .contains("Nível elevado pelas regras de segurança"),
+            "the note follows the user's language"
+        );
     }
 
     #[test]

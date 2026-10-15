@@ -1,6 +1,6 @@
 //! # cleaner-core
 //!
-//! Domain model, use cases (services) and ports of macOS Cleaner.
+//! Domain model, use cases (services) and ports of Disk Cleaner.
 //!
 //! This crate performs no I/O and knows nothing about Tauri, SQLite or HTTP: every external
 //! capability is a trait in [`ports`], implemented by adapters in `cleaner-infra`

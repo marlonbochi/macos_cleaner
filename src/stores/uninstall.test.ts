@@ -13,7 +13,7 @@ function setup() {
       ],
       storedKeys: [],
       bundleFound: true,
-      confirmationPhrase: "macOS Cleaner",
+      confirmationPhrase: "Disk Cleaner",
     }))
     .on("uninstall_app", () => ({
       trashed: ["/a", "/b"],
@@ -30,18 +30,18 @@ describe("uninstall store", () => {
 
   it("totals the footprint and requires the exact phrase", async () => {
     const { transport, store } = setup();
-    expect(store.confirms("macOS Cleaner")).toBe(false); // nothing loaded yet
+    expect(store.confirms("Disk Cleaner")).toBe(false); // nothing loaded yet
 
     await store.load();
     expect(store.totalSize).toBe(120);
-    expect(store.confirms(" macOS Cleaner ")).toBe(true);
-    expect(store.confirms("MACOS CLEANER")).toBe(false);
+    expect(store.confirms(" Disk Cleaner ")).toBe(true);
+    expect(store.confirms("DISK CLEANER")).toBe(false);
 
     await store.uninstall("nope");
     expect(transport.lastCall("uninstall_app")).toBeUndefined();
 
-    await store.uninstall(" macOS Cleaner ");
-    expect(transport.lastCall("uninstall_app")).toEqual({ confirmation: "macOS Cleaner" });
+    await store.uninstall(" Disk Cleaner ");
+    expect(transport.lastCall("uninstall_app")).toEqual({ confirmation: "Disk Cleaner" });
     expect(store.report?.quitting).toBe(true);
 
     store.reset();

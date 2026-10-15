@@ -56,7 +56,7 @@ mod tests {
     #[test]
     #[ignore = "uses the real macOS Keychain"]
     fn round_trips_a_secret() {
-        let store = KeychainSecretStore::new("com.marlonbochi.macoscleaner.tests");
+        let store = KeychainSecretStore::new("com.marlonbochi.diskcleaner.tests");
         store.delete("test.key").unwrap();
         assert_eq!(store.get("test.key").unwrap(), None);
         store.set("test.key", "s3cret").unwrap();

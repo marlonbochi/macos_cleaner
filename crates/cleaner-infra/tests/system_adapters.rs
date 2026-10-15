@@ -45,7 +45,7 @@ fn missing_paths_have_no_size() {
 #[ignore = "moves a temporary file to the real Trash"]
 fn moves_items_to_the_trash() {
     let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("macos-cleaner-trash-test.txt");
+    let file = dir.path().join("disk-cleaner-trash-test.txt");
     fs::write(&file, "bye").unwrap();
     MacTrash.move_to_trash(&file).unwrap();
     assert!(!file.exists());
@@ -78,7 +78,33 @@ fn reads_the_bundle_identifier_of_an_app() {
 fn development_builds_do_not_run_from_a_bundle() {
     // Test binaries live in target/, never inside a .app with this id.
     assert_eq!(
-        cleaner_infra::macos::running_app_bundle("com.marlonbochi.macoscleaner"),
+        cleaner_infra::macos::running_app_bundle("com.marlonbochi.diskcleaner"),
         None
+    );
+}
+
+#[test]
+fn adopts_the_data_folder_of_the_previous_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let legacy = dir.path().join("com.example.old");
+    let current = dir.path().join("com.example.new");
+    fs::create_dir_all(&legacy).unwrap();
+    fs::write(legacy.join("catalog.sqlite3"), "db").unwrap();
+
+    assert!(cleaner_infra::fs::adopt_legacy_dir(&legacy, &current).unwrap());
+    assert_eq!(
+        fs::read_to_string(current.join("catalog.sqlite3")).unwrap(),
+        "db"
+    );
+    assert!(!legacy.exists());
+
+    // Nothing left to adopt, and an existing folder is never overwritten.
+    assert!(!cleaner_infra::fs::adopt_legacy_dir(&legacy, &current).unwrap());
+    fs::create_dir_all(&legacy).unwrap();
+    fs::write(legacy.join("catalog.sqlite3"), "old").unwrap();
+    assert!(!cleaner_infra::fs::adopt_legacy_dir(&legacy, &current).unwrap());
+    assert_eq!(
+        fs::read_to_string(current.join("catalog.sqlite3")).unwrap(),
+        "db"
     );
 }

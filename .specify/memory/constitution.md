@@ -11,7 +11,7 @@ Sync Impact Report
 - Deferred TODOs: none
 -->
 
-# macOS Cleaner Constitution
+# Disk Cleaner Constitution
 
 ## Core Principles
 

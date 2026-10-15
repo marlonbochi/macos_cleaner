@@ -87,6 +87,13 @@ pub fn running_app_bundle(bundle_id: &str) -> Option<PathBuf> {
     (bundle_identifier(&app).as_deref() == Some(bundle_id)).then_some(app)
 }
 
+/// An installed app with this bundle id (found through Spotlight and double-checked against its
+/// `Info.plist`), e.g. the copy of the app installed under its previous name.
+pub fn installed_app_bundle(bundle_id: &str) -> Option<PathBuf> {
+    let app = app_path_for_bundle_id(bundle_id)?;
+    (bundle_identifier(&app).as_deref() == Some(bundle_id)).then_some(app)
+}
+
 fn app_name(app: &Path) -> String {
     app.file_stem().map_or_else(
         || app.display().to_string(),
@@ -157,9 +164,9 @@ mod tests {
     fn finds_the_outermost_app_bundle() {
         assert_eq!(
             enclosing_app_bundle(Path::new(
-                "/Applications/macOS Cleaner.app/Contents/MacOS/macos-cleaner"
+                "/Applications/Disk Cleaner.app/Contents/MacOS/disk-cleaner"
             )),
-            Some(PathBuf::from("/Applications/macOS Cleaner.app"))
+            Some(PathBuf::from("/Applications/Disk Cleaner.app"))
         );
         assert_eq!(
             enclosing_app_bundle(Path::new(
@@ -168,7 +175,7 @@ mod tests {
             Some(PathBuf::from("/Applications/Host.app"))
         );
         assert_eq!(
-            enclosing_app_bundle(Path::new("/repo/target/debug/macos-cleaner")),
+            enclosing_app_bundle(Path::new("/repo/target/debug/disk-cleaner")),
             None
         );
     }

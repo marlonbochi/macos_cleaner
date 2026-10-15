@@ -62,5 +62,5 @@ run("npx", ["prettier", "--write", "CHANGELOG.md", VERSION_FILES.tauriConf]);
 
 run("git", ["add", "-A"]);
 run("git", ["commit", "-m", `chore(release): ${tag}`]);
-run("git", ["tag", "-a", tag, "-m", `macOS Cleaner ${tag}`]);
+run("git", ["tag", "-a", tag, "-m", `Disk Cleaner ${tag}`]);
 console.log(`✓ committed and tagged ${tag}. Publish it with:\n\n  git push origin main ${tag}\n`);
