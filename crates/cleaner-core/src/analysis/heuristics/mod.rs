@@ -5,16 +5,19 @@
 //! the first matching rule wins, so specific rules come before generic ones. Every text exists
 //! in English and Brazilian Portuguese; the caller picks the language.
 
+mod linux;
+mod windows;
+
 use std::path::Path;
 
-use super::prompt::display_path;
 use super::verdict::Verdict;
 use crate::domain::file_entry::{FileKind, FileRecord};
 use crate::domain::locale::Locale;
+use crate::domain::platform::{Platform, normalized_path};
 use crate::domain::risk::{Recommendation, RiskCategory, RiskLevel, SuggestedCommand};
 
 /// Bump when the rules change: cached rule-based assessments are then recomputed.
-pub const HEURISTIC_VERSION: &str = "heuristic-v2";
+pub const HEURISTIC_VERSION: &str = "heuristic-v3";
 
 /// Normalised view of an item used by the matchers.
 struct Item<'a> {
@@ -46,26 +49,41 @@ struct Rule {
 
 #[derive(Debug, Clone)]
 pub struct HeuristicAnalyzer {
-    home: std::path::PathBuf,
+    home: String,
+    platform: Platform,
 }
 
 impl HeuristicAnalyzer {
+    /// Rules for the system this binary runs on.
     pub fn new(home: &Path) -> Self {
+        Self::for_platform(home, Platform::current())
+    }
+
+    pub fn for_platform(home: &Path, platform: Platform) -> Self {
         Self {
-            home: home.to_path_buf(),
+            home: home.to_string_lossy().into_owned(),
+            platform,
         }
     }
 
-    /// Always returns a verdict; `Unknown` when no rule applies.
+    /// Always returns a verdict; `Unknown` when no rule applies. Rules of the platform come
+    /// first, then the rules shared by every system (macOS-only paths simply never match
+    /// elsewhere).
     pub fn analyze(&self, record: &FileRecord, locale: Locale) -> Verdict {
         let item = Item {
-            path: display_path(&record.path, &self.home).to_lowercase(),
+            path: normalized_path(&record.path.to_string_lossy(), &self.home, self.platform),
             ext: record.extension(),
             kind: record.kind,
             record,
         };
-        RULES
+        let platform_rules: &[Rule] = match self.platform {
+            Platform::Windows => windows::RULES,
+            Platform::Linux => linux::RULES,
+            Platform::MacOs => &[],
+        };
+        platform_rules
             .iter()
+            .chain(RULES)
             .find(|rule| (rule.matches)(&item))
             .map_or_else(
                 || unknown(&item, locale),
@@ -679,6 +697,104 @@ mod tests {
         ] {
             assert_eq!(analyze(path, kind).level, RiskLevel::Safe, "{path}");
         }
+    }
+
+    fn analyze_on(platform: Platform, home: &str, path: &str, kind: FileKind) -> Verdict {
+        let record = FileRecord {
+            path: PathBuf::from(path),
+            kind,
+            size_on_disk: ByteSize::new(1),
+            apparent_size: ByteSize::new(1),
+            file_count: 1,
+            created_at: None,
+            modified_at: None,
+            accessed_at: None,
+            inode: 1,
+            device: 1,
+            is_hardlink_dup: false,
+            is_protected: false,
+        };
+        HeuristicAnalyzer::for_platform(Path::new(home), platform).analyze(&record, Locale::EnUs)
+    }
+
+    #[test]
+    fn windows_rules_recognise_system_files_and_caches() {
+        let win = |path: &str, kind| analyze_on(Platform::Windows, r"C:\Users\Bob", path, kind);
+
+        let temp = win(r"C:\Users\Bob\AppData\Local\Temp", FileKind::Directory);
+        assert_eq!((temp.level, temp.category), (RiskLevel::Safe, RiskCategory::Cache));
+
+        let hiber = win(r"C:\hiberfil.sys", FileKind::File);
+        assert!(hiber.commands.iter().any(|c| c.command == "powercfg /hibernate off"));
+
+        assert_eq!(win(r"C:\pagefile.sys", FileKind::File).level, RiskLevel::Dangerous);
+        assert_eq!(win(r"D:\Windows.old", FileKind::Directory).category, RiskCategory::Backup);
+        assert_eq!(
+            win(r"C:\Program Files\Some App", FileKind::Directory).category,
+            RiskCategory::AppBundle
+        );
+        assert_eq!(
+            win(r"C:\Program Files\Some App\data", FileKind::Directory).category,
+            RiskCategory::Other,
+            "only the program folder itself is an app"
+        );
+        assert_eq!(
+            win(r"C:\Users\Bob\Downloads\setup.EXE", FileKind::File).category,
+            RiskCategory::Installer
+        );
+        assert_eq!(
+            win(r"C:\Program Files (x86)\Steam\steamapps\common\Game", FileKind::Directory)
+                .category,
+            RiskCategory::Game
+        );
+        assert_eq!(
+            win(
+                r"C:\Users\Bob\AppData\Local\Google\Chrome\User Data\Default\Cache",
+                FileKind::Directory
+            )
+            .level,
+            RiskLevel::Safe
+        );
+        assert_eq!(
+            win(r"C:\Users\Bob\Videos\trip.mp4", FileKind::File).category,
+            RiskCategory::Media,
+            "shared rules still apply"
+        );
+    }
+
+    #[test]
+    fn linux_rules_recommend_the_system_tools() {
+        let linux = |path: &str, kind| analyze_on(Platform::Linux, "/home/bob", path, kind);
+
+        let journal = linux("/var/log/journal", FileKind::Directory);
+        assert!(journal.commands.iter().any(|c| c.command.contains("journalctl --vacuum-size")));
+        assert!(
+            linux("/var/cache/apt/archives", FileKind::Directory)
+                .commands
+                .iter()
+                .any(|c| c.command == "sudo apt clean")
+        );
+        assert_eq!(linux("/home/bob/.cache/mozilla", FileKind::Directory).level, RiskLevel::Safe);
+        assert_eq!(
+            linux("/home/bob/.local/share/Trash/files/x.iso", FileKind::File).level,
+            RiskLevel::Safe
+        );
+        assert_eq!(linux("/opt/google", FileKind::Directory).category, RiskCategory::AppBundle);
+        assert_eq!(
+            linux("/home/bob/Downloads/app.deb", FileKind::File).category,
+            RiskCategory::Installer
+        );
+        assert_eq!(
+            linux("/home/bob/Library/Caches/x", FileKind::Directory).level,
+            RiskLevel::Safe,
+            "generic cache rule still applies"
+        );
+    }
+
+    #[test]
+    fn windows_paths_are_never_matched_by_unix_rules() {
+        let v = analyze_on(Platform::MacOs, "/Users/bob", "/var/cache/apt", FileKind::Directory);
+        assert_ne!(v.commands.first().map(|c| c.command.as_str()), Some("sudo apt clean"));
     }
 
     #[test]

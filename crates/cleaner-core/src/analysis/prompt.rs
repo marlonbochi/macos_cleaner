@@ -11,11 +11,12 @@ use serde_json::{Value, json};
 use super::verdict::Verdict;
 use crate::domain::file_entry::{FileKind, FileRecord};
 use crate::domain::locale::Locale;
+use crate::domain::platform::Platform;
 use crate::domain::risk::{Recommendation, RiskCategory, RiskLevel, SuggestedCommand};
 use crate::ports::ai::AiError;
 
 /// Bump when the prompt or schema changes: cached AI assessments are then recomputed.
-pub const PROMPT_VERSION: u32 = 2;
+pub const PROMPT_VERSION: u32 = 3;
 pub const SCHEMA_NAME: &str = "file_analysis";
 /// How many children of a folder are described to the model.
 pub const MAX_CHILDREN: usize = 15;
@@ -26,7 +27,7 @@ pub const MAX_BATCH: usize = 20;
 pub const BATCH_MAX_CHILDREN: usize = 5;
 
 const SYSTEM_PROMPT: &str = "\
-You are a macOS expert helping someone free disk space safely.
+You are a {os} expert helping someone free disk space safely.
 You receive the METADATA of an item (never its contents): path (with ~ for the home folder),
 kind, sizes, dates and, for folders, the largest children.
 
@@ -41,13 +42,13 @@ Rules:
 - Be conservative: when in doubt, use Caution or Unknown. Never classify as Safe anything that may
   contain unique personal data.
 - When there is an official way to clean it (an app setting, a menu, or an official command such
-  as `xcrun simctl delete unavailable`, `brew cleanup`, `docker system prune`,
-  `tmutil deletelocalsnapshots`), recommend it (recommendation use-app-or-command) instead of
-  deleting the folder by hand, and explain why.
-- In `steps`, describe menu paths or short steps (e.g. \"Xcode › Settings › Platforms\").
-- In `commands`, include only real, safe commands, one per entry, each with a description of what
-  it does. Never suggest `sudo rm -rf` on system folders nor commands that delete more than the
-  analysed item. Leave `commands` empty when no command is useful.
+  as {commands}), recommend it (recommendation use-app-or-command) instead of deleting the folder
+  by hand, and explain why.
+- In `steps`, describe menu paths or short steps (e.g. \"{menu}\").
+- In `commands`, include only real, safe {shell} commands for {os}, one per entry, each with a
+  description of what it does. Never suggest commands that recursively delete system folders nor
+  commands that delete more than the analysed item. Leave `commands` empty when no command is
+  useful.
 - If the best option is to keep the data but off this disk, use move-to-cloud-or-external.";
 
 /// Metadata sent to the model.
@@ -71,10 +72,36 @@ struct ChildContext {
     size_on_disk: String,
 }
 
-/// System prompt with the answer language appended (field values stay in English enums).
-pub fn system_prompt(locale: Locale) -> String {
+/// System prompt for the user's system, with the answer language appended (field values stay in
+/// English enums).
+pub fn system_prompt(locale: Locale, platform: Platform) -> String {
+    let (commands, menu, shell) = match platform {
+        Platform::MacOs => (
+            "`xcrun simctl delete unavailable`, `brew cleanup`, `docker system prune`, \
+             `tmutil deletelocalsnapshots`",
+            "Xcode › Settings › Platforms",
+            "Terminal (zsh)",
+        ),
+        Platform::Windows => (
+            "`cleanmgr`, `Dism.exe /Online /Cleanup-Image /StartComponentCleanup`, \
+             `powercfg /hibernate off`, `npm cache clean --force`",
+            "Settings › System › Storage › Temporary files",
+            "PowerShell",
+        ),
+        Platform::Linux => (
+            "`sudo apt clean`, `sudo apt autoremove`, `sudo journalctl --vacuum-size=200M`, \
+             `flatpak uninstall --unused`, `docker system prune`",
+            "Settings › Privacy › File History & Trash",
+            "bash",
+        ),
+    };
+    let prompt = SYSTEM_PROMPT
+        .replace("{os}", platform.display_name())
+        .replace("{commands}", commands)
+        .replace("{menu}", menu)
+        .replace("{shell}", shell);
     format!(
-        "{SYSTEM_PROMPT}\n\nWrite `summary`, `explanation`, `steps` and command descriptions in {}.",
+        "{prompt}\n\nWrite `summary`, `explanation`, `steps` and command descriptions in {}.",
         locale.language_name()
     )
 }
@@ -440,8 +467,25 @@ mod tests {
 
     #[test]
     fn system_prompt_asks_for_the_chosen_language() {
-        assert!(system_prompt(Locale::PtBr).ends_with("in Brazilian Portuguese."));
-        assert!(system_prompt(Locale::EnUs).ends_with("in English."));
+        assert!(system_prompt(Locale::PtBr, Platform::MacOs).ends_with("in Brazilian Portuguese."));
+        assert!(system_prompt(Locale::EnUs, Platform::MacOs).ends_with("in English."));
+    }
+
+    #[test]
+    fn system_prompt_targets_the_users_system() {
+        let mac = system_prompt(Locale::EnUs, Platform::MacOs);
+        assert!(mac.starts_with("You are a macOS expert"));
+        assert!(mac.contains("xcrun simctl delete unavailable"));
+
+        let windows = system_prompt(Locale::EnUs, Platform::Windows);
+        assert!(windows.starts_with("You are a Windows expert"));
+        assert!(windows.contains("PowerShell commands for Windows"));
+        assert!(!windows.contains("xcrun"));
+
+        let linux = system_prompt(Locale::EnUs, Platform::Linux);
+        assert!(linux.contains("Linux (Debian-based)"));
+        assert!(linux.contains("sudo apt clean"));
+        assert!(!linux.contains('{'), "every placeholder is filled");
     }
 
     #[test]

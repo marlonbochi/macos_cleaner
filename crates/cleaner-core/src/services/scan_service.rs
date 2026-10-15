@@ -16,6 +16,7 @@ use crate::domain::file_entry::{FileKind, FileRecord, ScannedEntry};
 use crate::domain::scan::{NewScan, Scan, ScanId, ScanStats};
 use crate::domain::size::ByteSize;
 use crate::error::{CoreError, RepoError};
+use crate::domain::platform::Platform;
 use crate::policy::protected_paths::{ProtectedPathPolicy, default_scan_exclusions};
 use crate::ports::Clock;
 use crate::ports::filesystem::{FileSystemScanner, ScanOptions, ScanSink};
@@ -41,6 +42,8 @@ pub struct ScanConfig {
     pub batch_size: usize,
     /// Minimum time between two progress notifications.
     pub progress_interval: Duration,
+    /// System being scanned (default exclusions depend on it).
+    pub platform: Platform,
 }
 
 impl Default for ScanConfig {
@@ -48,6 +51,7 @@ impl Default for ScanConfig {
         Self {
             batch_size: 5_000,
             progress_interval: Duration::from_millis(100),
+            platform: Platform::current(),
         }
     }
 }
@@ -122,7 +126,7 @@ impl ScanService {
         observer: &mut dyn ScanObserver,
     ) -> Result<Scan, CoreError> {
         let options = ScanOptions {
-            excluded: exclusions_for(&scan.roots),
+            excluded: exclusions_for(&scan.roots, self.config.platform),
         };
         // The builder cancels this internal token if persisting fails, so the walk stops early.
         let walk_cancel = CancellationToken::new();
@@ -161,8 +165,8 @@ fn normalize_roots(mut roots: Vec<PathBuf>) -> Vec<PathBuf> {
 }
 
 /// Default exclusions, except those the user explicitly chose to scan (e.g. `/Volumes/USB`).
-fn exclusions_for(roots: &[PathBuf]) -> Vec<PathBuf> {
-    default_scan_exclusions()
+fn exclusions_for(roots: &[PathBuf], platform: Platform) -> Vec<PathBuf> {
+    default_scan_exclusions(platform)
         .into_iter()
         .filter(|excluded| !roots.iter().any(|root| root.starts_with(excluded)))
         .collect()
@@ -439,6 +443,7 @@ mod tests {
             ScanConfig {
                 batch_size: 2,
                 progress_interval: Duration::ZERO,
+                platform: Platform::MacOs,
             },
         );
         Harness {
@@ -688,8 +693,8 @@ mod tests {
 
     #[test]
     fn explicit_external_volume_is_not_excluded() {
-        let excluded = exclusions_for(&[PathBuf::from("/Volumes/USB")]);
+        let excluded = exclusions_for(&[PathBuf::from("/Volumes/USB")], Platform::MacOs);
         assert!(!excluded.contains(&PathBuf::from("/Volumes")));
-        assert!(exclusions_for(&[PathBuf::from("/")]).contains(&PathBuf::from("/Volumes")));
+        assert!(exclusions_for(&[PathBuf::from("/")], Platform::MacOs).contains(&PathBuf::from("/Volumes")));
     }
 }
