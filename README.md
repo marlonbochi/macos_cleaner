@@ -142,11 +142,13 @@ scripts/make-fixture-tree.sh /tmp/mc-fixture
 
 ## CI/CD
 
-- `ci.yml` — on every push/PR: fmt, clippy, tests with coverage (Rust ≥ 80%, frontend ≥ 70%),
-  ESLint, Prettier, vue-tsc, generated-types drift check and an unsigned `.dmg` build.
-- `release.yml` — on a `v*` tag: runs every CI gate, checks the tag matches the app version, builds
-  a universal (Apple Silicon + Intel) `.dmg` on GitHub and publishes a GitHub Release with notes
-  generated from the commits.
+- `ci.yml` — on every push/PR: fmt, clippy and tests on macOS, Windows and Ubuntu (coverage ≥ 80%
+  on macOS), ESLint, Prettier, vue-tsc, frontend tests (≥ 70%), generated-types drift check, and
+  the `.dmg`, NSIS installer and `.deb` builds as downloadable artifacts.
+- `release.yml` — on a `v*` tag: runs every CI gate, checks the tag matches the app version,
+  drafts a GitHub Release with notes generated from the commits, builds a universal `.dmg`
+  (macOS), an NSIS installer (Windows x64) and a `.deb` (Debian/Ubuntu amd64) on GitHub, attaches
+  them and only then publishes the release.
 - `audit.yml` — weekly dependency audit; Dependabot keeps dependencies current.
 
 ## Releases

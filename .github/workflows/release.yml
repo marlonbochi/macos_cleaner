@@ -1,7 +1,8 @@
 name: Release
 
-# Pushing a version tag (created by `npm run release -- x.y.z`) builds the app on GitHub and
-# publishes a GitHub Release with the release notes and the .dmg attached.
+# Pushing a version tag (created by `npm run release -- x.y.z`) builds the app on GitHub for every
+# system and publishes a GitHub Release with the notes and the installers attached: a universal
+# .dmg (macOS), an NSIS installer (Windows x64) and a .deb package (Debian/Ubuntu amd64).
 on:
   push:
     tags: ["v*"]
@@ -14,10 +15,12 @@ jobs:
     name: Quality gates
     uses: ./.github/workflows/ci.yml
 
-  release:
-    name: Build and publish
+  draft:
+    name: Draft the release
     needs: ci
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+    outputs:
+      release-id: ${{ steps.create.outputs.id }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -26,13 +29,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
 
       - name: Check that the tag matches the app version
         run: node scripts/release/check-version.mjs "$GITHUB_REF_NAME"
 
       - name: Generate release notes
-        id: notes
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
@@ -40,32 +41,68 @@ jobs:
         env:
           OUTPUT: release-notes.md
 
-      - name: Add installation notes
-        id: body
+      # A draft stays hidden until every installer is attached (see `publish`).
+      - name: Create the draft release
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          {
-            echo "text<<RELEASE_BODY_EOF"
-            cat release-notes.md
-            echo
-            cat .github/release-install.md
-            echo "RELEASE_BODY_EOF"
-          } >> "$GITHUB_OUTPUT"
+          cat release-notes.md .github/release-install.md > release-body.md
+          prerelease=$([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease || true)
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag $prerelease \
+            --title "Disk Cleaner $GITHUB_REF_NAME" --notes-file release-body.md
+          echo "id=$(gh release view "$GITHUB_REF_NAME" --json databaseId --jq .databaseId)" >> "$GITHUB_OUTPUT"
 
+  build:
+    name: Build (${{ matrix.name }})
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Unsigned universal build (Apple Silicon and Intel). To sign and notarize, add the
+          # APPLE_* secrets documented at https://v2.tauri.app/distribute/sign/macos/.
+          - name: macOS
+            os: macos-latest
+            targets: aarch64-apple-darwin, x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles dmg
+          - name: Windows
+            os: windows-latest
+            targets: ""
+            args: --bundles nsis
+          # 22.04 keeps the .deb compatible with Debian 12 (glibc 2.36) and newer.
+          - name: Debian
+            os: ubuntu-22.04
+            targets: ""
+            args: --bundles deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin, x86_64-apple-darwin
+          targets: ${{ matrix.targets }}
+      - name: Linux system libraries
+        if: runner.os == 'Linux'
+        run: ./scripts/ci/linux-deps.sh
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
       - run: npm ci
-
-      # Unsigned universal build (Apple Silicon and Intel). To sign and notarize, add the APPLE_*
-      # secrets documented at https://v2.tauri.app/distribute/sign/macos/.
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Disk Cleaner ${{ github.ref_name }}
-          releaseBody: ${{ steps.body.outputs.text }}
-          releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          args: --target universal-apple-darwin --bundles dmg
+          releaseId: ${{ needs.draft.outputs.release-id }}
+          args: ${{ matrix.args }}
+
+  publish:
+    name: Publish the release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish once every installer is attached
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
