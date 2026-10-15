@@ -10,6 +10,7 @@ export {
   ScanApi,
   SettingsApi,
   SystemApi,
+  UninstallApi,
 } from "./api";
 export type { ListFilesParams } from "./api";
 export { IpcError, TauriTransport } from "./transport";

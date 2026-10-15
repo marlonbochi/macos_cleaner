@@ -1,8 +1,10 @@
 //! Thin wrappers around macOS system facilities.
 
 mod keychain;
+mod trash;
 
 pub use keychain::KeychainSecretStore;
+pub use trash::MacTrash;
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -63,6 +65,26 @@ pub fn enclosing_app_bundle(path: &Path) -> Option<PathBuf> {
         .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("app")))
         .last()
         .map(Path::to_path_buf)
+}
+
+/// `CFBundleIdentifier` of an app bundle, read from its `Info.plist`.
+pub fn bundle_identifier(app: &Path) -> Option<String> {
+    let output = Command::new("/usr/bin/defaults")
+        .arg("read")
+        .arg(app.join("Contents/Info"))
+        .arg("CFBundleIdentifier")
+        .output()
+        .ok()?;
+    let id = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    (output.status.success() && !id.is_empty()).then_some(id)
+}
+
+/// The `.app` bundle this process runs from, only if it carries `bundle_id` (so a development
+/// build, or an app embedded somewhere unexpected, never resolves to someone else's bundle).
+pub fn running_app_bundle(bundle_id: &str) -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let app = enclosing_app_bundle(&exe)?;
+    (bundle_identifier(&app).as_deref() == Some(bundle_id)).then_some(app)
 }
 
 fn app_name(app: &Path) -> String {

@@ -18,6 +18,8 @@ go — with an AI assistant that explains each item and the right way to clean i
 - **AI diagnosis** — when a scan finishes, the 40 largest meaningful items are sent to the AI and
   listed in their own tab with what the AI thinks of each one and how much space is safe to free.
   AI features only appear once a provider is configured.
+- **Clean uninstall** — Settings → Uninstall removes the app, its data and its Keychain entries
+  (to the Trash, after typing the app's name to confirm), so the cleaner leaves no junk behind.
 - **Safety first** — protected system paths are never deletion candidates, symlinks are never
   followed, only metadata (never file contents) is sent to the AI.
 
@@ -29,15 +31,15 @@ Tauri v2, built spec-first with [Spec Kit](https://github.com/github/spec-kit).
 
 ## Documentation
 
-| Document                                                 | Contents                                                                                                                                                             |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Constitution](.specify/memory/constitution.md)          | Non-negotiable principles (safety, architecture, tests, AI)                                                                                                          |
-| [Specification](specs/001-disk-space-cleaner/spec.md)    | User stories, requirements and success criteria                                                                                                                      |
-| [Plan](specs/001-disk-space-cleaner/plan.md)             | Stack, structure and decisions ([research](specs/001-disk-space-cleaner/research.md))                                                                                |
-| [Data model](specs/001-disk-space-cleaner/data-model.md) | Entities and SQLite schema                                                                                                                                           |
-| [Contracts](specs/001-disk-space-cleaner/contracts/)     | IPC commands, core ports, AI contract                                                                                                                                |
-| [Tasks](specs/001-disk-space-cleaner/tasks.md)           | Backlog ordered by user story                                                                                                                                        |
-| Later stages                                             | [002 AI analysis](specs/002-ai-risk-analysis/spec.md), [003 batch analysis](specs/003-batch-ai-analysis/spec.md), [008 AI diagnosis](specs/008-ai-diagnosis/spec.md) |
+| Document                                                 | Contents                                                                                                                                                                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Constitution](.specify/memory/constitution.md)          | Non-negotiable principles (safety, architecture, tests, AI)                                                                                                                                                        |
+| [Specification](specs/001-disk-space-cleaner/spec.md)    | User stories, requirements and success criteria                                                                                                                                                                    |
+| [Plan](specs/001-disk-space-cleaner/plan.md)             | Stack, structure and decisions ([research](specs/001-disk-space-cleaner/research.md))                                                                                                                              |
+| [Data model](specs/001-disk-space-cleaner/data-model.md) | Entities and SQLite schema                                                                                                                                                                                         |
+| [Contracts](specs/001-disk-space-cleaner/contracts/)     | IPC commands, core ports, AI contract                                                                                                                                                                              |
+| [Tasks](specs/001-disk-space-cleaner/tasks.md)           | Backlog ordered by user story                                                                                                                                                                                      |
+| Later stages                                             | [002 AI analysis](specs/002-ai-risk-analysis/spec.md), [003 batch analysis](specs/003-batch-ai-analysis/spec.md), [008 AI diagnosis](specs/008-ai-diagnosis/spec.md), [009 uninstall](specs/009-uninstall/spec.md) |
 
 Development follows Spec Kit: `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
 `/speckit-implement`, one branch per stage.
@@ -136,6 +138,15 @@ scripts/make-fixture-tree.sh /tmp/mc-fixture
   ESLint, Prettier, vue-tsc, generated-types drift check and an unsigned `.dmg` build.
 - `release.yml` — `v*` tags create a draft release with a universal `.dmg`.
 - `audit.yml` — weekly dependency audit; Dependabot keeps dependencies current.
+
+## Uninstalling
+
+Use **Settings → Uninstall macOS Cleaner**. If the app was already deleted, remove its leftovers by
+hand (all named after the bundle identifier `com.marlonbochi.macoscleaner`):
+
+- `~/Library/Application Support/com.marlonbochi.macoscleaner` (catalogue database)
+- `~/Library/Caches/com.marlonbochi.macoscleaner` and `~/Library/WebKit/com.marlonbochi.macoscleaner`
+- Keychain Access → search for `com.marlonbochi.macoscleaner` (API keys)
 
 ## License
 

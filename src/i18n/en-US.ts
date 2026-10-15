@@ -193,6 +193,34 @@ export default {
     privacy:
       "Only metadata: the path (with ~ instead of your home folder), kind, size, dates and the names of a folder's largest children. File contents are never sent.",
   },
+  uninstall: {
+    title: "Uninstall macOS Cleaner",
+    description:
+      "Removes the app completely: the catalogue database, caches, settings, API keys in the Keychain and the app itself. Files go to the Trash.",
+    open: "Uninstall…",
+    dialogTitle: "Uninstall macOS Cleaner?",
+    warning:
+      "Everything below goes to the Trash and the API keys are deleted from the Keychain. The app quits when it is done.",
+    keys: "API keys (Keychain)",
+    total: "Total: {size}",
+    noBundle:
+      "Development build: the app itself was not found and will not be removed. Only its data will.",
+    typeToConfirm: "Type “{phrase}” to confirm",
+    confirm: "Uninstall",
+    running: "Uninstalling…",
+    result: "{count} item(s) moved to the Trash and {keys} key(s) removed.",
+    quitting: "macOS Cleaner will quit now. Empty the Trash to free the space.",
+    kind: {
+      appData: "Data (catalogue)",
+      webData: "Web view data",
+      cache: "Cache",
+      logs: "Logs",
+      preferences: "Preferences",
+      savedState: "Window state",
+      httpStorage: "Network storage",
+      appBundle: "The app",
+    },
+  },
   errors: {
     generic: "Something went wrong: {message}",
   },

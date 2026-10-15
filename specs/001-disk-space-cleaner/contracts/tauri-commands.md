@@ -114,6 +114,24 @@ type ConnectionTestDto = { provider: string; model: string };
 type DiagnosisItemDto = { file: FileEntryDto; analysis: AnalysisDto | null };
 ```
 
+## Uninstall (feature 009) — implemented
+
+| Command | Args | Returns | Notes |
+|---|---|---|---|
+| `get_app_footprint` | — | `AppFootprintDto` | every location the app created, with sizes; changes nothing |
+| `uninstall_app` | `{ confirmation: string }` | `UninstallReportDto` | must equal `confirmationPhrase`; keys deleted, items to the Trash, app quits |
+
+```ts
+type AppFootprintDto = {
+  items: { kind: FootprintKindDto; path: string; size: number }[];   // app bundle last
+  storedKeys: AiProviderIdDto[]; bundleFound: boolean; confirmationPhrase: string;
+};
+type UninstallReportDto = {
+  trashed: string[]; keysRemoved: number;
+  failures: { target: string; reason: string }[]; quitting: boolean;
+};
+```
+
 ## Deletion (US3) — planned
 
 | Command | Args | Returns | Notes |

@@ -197,6 +197,34 @@ const ptBR: MessageSchema = {
     privacy:
       "Somente metadados: caminho (com ~ no lugar da sua pasta pessoal), tipo, tamanho, datas e os nomes dos maiores subitens de pastas. O conteúdo dos arquivos nunca é enviado.",
   },
+  uninstall: {
+    title: "Desinstalar o macOS Cleaner",
+    description:
+      "Remove o app por completo: o banco do catálogo, caches, configurações, chaves de API no Keychain e o próprio app. Os arquivos vão para o Lixo.",
+    open: "Desinstalar…",
+    dialogTitle: "Desinstalar o macOS Cleaner?",
+    warning:
+      "Tudo abaixo vai para o Lixo e as chaves de API são apagadas do Keychain. O app fecha ao terminar.",
+    keys: "Chaves de API (Keychain)",
+    total: "Total: {size}",
+    noBundle:
+      "Versão de desenvolvimento: o app em si não foi encontrado e não será removido. Só os dados dele.",
+    typeToConfirm: "Digite “{phrase}” para confirmar",
+    confirm: "Desinstalar",
+    running: "Desinstalando…",
+    result: "{count} item(ns) movido(s) para o Lixo e {keys} chave(s) removida(s).",
+    quitting: "O macOS Cleaner vai fechar agora. Esvazie o Lixo para liberar o espaço.",
+    kind: {
+      appData: "Dados (catálogo)",
+      webData: "Dados da interface web",
+      cache: "Cache",
+      logs: "Logs",
+      preferences: "Preferências",
+      savedState: "Estado das janelas",
+      httpStorage: "Armazenamento de rede",
+      appBundle: "O app",
+    },
+  },
   errors: {
     generic: "Algo deu errado: {message}",
   },

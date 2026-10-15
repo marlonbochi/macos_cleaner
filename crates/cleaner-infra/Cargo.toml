@@ -18,6 +18,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+trash = { version = "5.2.9", default-features = false }
 
 [dev-dependencies]
 cleaner-core = { workspace = true, features = ["testing"] }

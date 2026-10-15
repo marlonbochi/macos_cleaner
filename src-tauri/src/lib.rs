@@ -22,7 +22,8 @@ fn init_tracing() {
 
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let paths = app.path();
-    let state = AppState::build(&paths.app_data_dir()?, paths.home_dir()?)?;
+    let bundle_id = app.config().identifier.clone();
+    let state = AppState::build(&paths.app_data_dir()?, paths.home_dir()?, &bundle_id)?;
     app.manage(state);
     Ok(())
 }
@@ -54,6 +55,8 @@ pub fn run() {
             commands::diagnosis::run_ai_diagnosis,
             commands::preferences::get_preferences,
             commands::preferences::set_locale,
+            commands::uninstall::get_app_footprint,
+            commands::uninstall::uninstall_app,
         ])
         .run(tauri::generate_context!());
     if let Err(e) = result {

@@ -9,3 +9,4 @@ pub mod diagnosis;
 pub mod preferences;
 pub mod scan;
 pub mod system;
+pub mod uninstall;

@@ -3,6 +3,7 @@
 pub mod ai;
 pub mod filesystem;
 pub mod repository;
+pub mod system;
 
 /// Source of the current time, injectable so tests are deterministic.
 pub trait Clock: Send + Sync {

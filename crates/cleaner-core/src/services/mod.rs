@@ -6,3 +6,4 @@ pub mod catalog_service;
 pub mod diagnosis_service;
 pub mod preferences_service;
 pub mod scan_service;
+pub mod uninstall_service;
