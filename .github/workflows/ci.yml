@@ -93,6 +93,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run tauri build -- --bundles dmg
+      # Without a valid (ad-hoc) signature on the whole bundle, macOS may call a downloaded
+      # copy "damaged" instead of offering "Open Anyway".
+      - name: Check the app bundle signature
+        run: |
+          dmg=$(ls target/release/bundle/dmg/*.dmg)
+          mount=$(hdiutil attach -nobrowse -readonly "$dmg" | tail -1 | cut -f3)
+          codesign --verify --deep --strict --verbose=2 "$mount/macOS Cleaner.app"
+          hdiutil detach "$mount"
       - uses: actions/upload-artifact@v7
         with:
           name: macos-cleaner-dmg
