@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use cleaner_core::cancel::CancellationToken;
+use cleaner_core::domain::platform::Platform;
 use cleaner_core::domain::scan::ScanId;
 use cleaner_core::domain::size::ByteSize;
 use cleaner_core::services::scan_service::{ScanObserver, ScanProgress};
@@ -11,6 +12,7 @@ use tauri::ipc::Channel;
 
 use crate::dto::{ScanDefaultsDto, ScanEvent, ScanSummaryDto};
 use crate::error::{AppError, CommandResult};
+use crate::platform;
 use crate::state::AppState;
 
 /// Default threshold for listing individual files (spec assumption: 100 MB).
@@ -52,11 +54,20 @@ fn send(channel: &Channel<ScanEvent>, event: ScanEvent) {
 
 #[tauri::command]
 pub fn get_scan_defaults(state: State<'_, AppState>) -> ScanDefaultsDto {
-    let home = state.home.to_string_lossy().into_owned();
+    let presets = platform::scan_presets(&state.home);
+    let text = |paths: Vec<PathBuf>| -> Vec<String> {
+        paths
+            .into_iter()
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect()
+    };
     ScanDefaultsDto {
-        roots: vec![home.clone(), "/Applications".into()],
-        home,
+        roots: text(presets.default_roots),
+        home: state.home.to_string_lossy().into_owned(),
         min_file_size: DEFAULT_MIN_FILE_SIZE.bytes(),
+        platform: Platform::current().into(),
+        applications: text(presets.applications),
+        disks: text(presets.disks),
     }
 }
 

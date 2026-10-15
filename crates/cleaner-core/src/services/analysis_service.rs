@@ -21,6 +21,7 @@ use crate::analysis::prompt::{
 use crate::analysis::verdict::{Verdict, protected_verdict};
 use crate::domain::file_entry::{FileEntry, FileId, FileKind, FileRecord};
 use crate::domain::locale::Locale;
+use crate::domain::platform::Platform;
 use crate::domain::risk::{AssessmentKey, AssessmentSource, RiskAssessment, RiskLevel};
 use crate::error::CoreError;
 use crate::ports::Clock;
@@ -48,6 +49,7 @@ pub struct AnalysisService {
     heuristics: HeuristicAnalyzer,
     clock: Arc<dyn Clock>,
     home: PathBuf,
+    platform: Platform,
 }
 
 impl std::fmt::Debug for AnalysisService {
@@ -73,7 +75,16 @@ impl AnalysisService {
             heuristics: HeuristicAnalyzer::new(home),
             clock,
             home: home.to_path_buf(),
+            platform: Platform::current(),
         }
+    }
+
+    /// Analyses items as found on `platform` (rules and AI instructions differ per system).
+    #[must_use]
+    pub fn with_platform(mut self, platform: Platform) -> Self {
+        self.heuristics = HeuristicAnalyzer::for_platform(&self.home, platform);
+        self.platform = platform;
+        self
     }
 
     /// Analyses an item. With `force`, ignores the cache (the "analyse again" button).
@@ -214,7 +225,7 @@ impl AnalysisService {
         let user = batch_user_message(&inputs, &self.home);
         let answer = provider
             .complete_json(&StructuredRequest {
-                system: &system_prompt(locale),
+                system: &system_prompt(locale, self.platform),
                 user: &user,
                 schema: &schema,
                 schema_name: BATCH_SCHEMA_NAME,
@@ -329,7 +340,7 @@ impl AnalysisService {
         let schema = response_schema();
         let user = user_message(&entry.record, &children, &self.home);
         let reply = provider.complete_json(&StructuredRequest {
-            system: &system_prompt(locale),
+            system: &system_prompt(locale, self.platform),
             user: &user,
             schema: &schema,
             schema_name: SCHEMA_NAME,
@@ -380,7 +391,10 @@ fn apply_safety_floor(mut ai: Verdict, rules: &Verdict, locale: Locale) -> Verdi
     ai
 }
 
+// Fixtures use POSIX paths, which are not absolute on Windows. The logic under test does not
+// depend on the system; Windows paths are covered by the platform-specific tests.
 #[cfg(test)]
+#[cfg(unix)]
 mod tests {
     use super::*;
     use crate::domain::ai::{AiProviderKind, AiSettings};
@@ -521,7 +535,7 @@ mod tests {
             en.assessment.summary,
             "Xcode simulators and runtimes (CoreSimulator)."
         );
-        assert_eq!(en.assessment.evaluator_version, "heuristic-v2:en-US");
+        assert_eq!(en.assessment.evaluator_version, "heuristic-v3:en-US");
 
         h.prefs.set_locale(Locale::PtBr).unwrap();
         let pt = h.service.analyze(FileId(1), false).unwrap();
@@ -529,7 +543,7 @@ mod tests {
             pt.assessment.summary,
             "Simuladores e runtimes do Xcode (CoreSimulator)."
         );
-        assert_eq!(pt.assessment.evaluator_version, "heuristic-v2:pt-BR");
+        assert_eq!(pt.assessment.evaluator_version, "heuristic-v3:pt-BR");
     }
 
     #[test]
@@ -543,7 +557,7 @@ mod tests {
         let out = h.service.analyze(FileId(1), false).unwrap();
         assert_eq!(
             out.assessment.evaluator_version,
-            "fake:fake-model:prompt-v2:pt-BR"
+            "fake:fake-model:prompt-v3:pt-BR"
         );
     }
 

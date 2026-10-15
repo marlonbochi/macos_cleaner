@@ -12,7 +12,7 @@ function setup() {
         { kind: "cache", path: "/b", size: 20 },
       ],
       storedKeys: [],
-      bundleFound: true,
+      appRemoval: { kind: "trash" },
       confirmationPhrase: "Disk Cleaner",
     }))
     .on("uninstall_app", () => ({

@@ -5,8 +5,9 @@ use std::fs;
 
 use cleaner_core::ports::system::{DiskUsage, Trash};
 use cleaner_infra::fs::StdDiskUsage;
-use cleaner_infra::macos::MacTrash;
+use cleaner_infra::system::SystemTrash;
 
+#[cfg(unix)]
 #[test]
 fn measures_folders_recursively_without_following_symlinks() {
     let dir = tempfile::tempdir().unwrap();
@@ -31,6 +32,16 @@ fn measures_folders_recursively_without_following_symlinks() {
 }
 
 #[test]
+fn measures_files_and_folders_on_every_system() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("data");
+    fs::create_dir_all(root.join("nested")).unwrap();
+    fs::write(root.join("nested/b.bin"), vec![1u8; 128 * 1024]).unwrap();
+    let size = StdDiskUsage.size_on_disk(&root).unwrap().unwrap().bytes();
+    assert!(size >= 128 * 1024, "{size}");
+}
+
+#[test]
 fn missing_paths_have_no_size() {
     let dir = tempfile::tempdir().unwrap();
     assert!(
@@ -47,11 +58,15 @@ fn moves_items_to_the_trash() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("disk-cleaner-trash-test.txt");
     fs::write(&file, "bye").unwrap();
-    MacTrash.move_to_trash(&file).unwrap();
+    SystemTrash.move_to_trash(&file).unwrap();
     assert!(!file.exists());
-    assert!(MacTrash.move_to_trash(&file).is_err(), "missing items fail");
+    assert!(
+        SystemTrash.move_to_trash(&file).is_err(),
+        "missing items fail"
+    );
 }
 
+#[cfg(target_os = "macos")]
 #[test]
 fn reads_the_bundle_identifier_of_an_app() {
     let dir = tempfile::tempdir().unwrap();
@@ -74,6 +89,7 @@ fn reads_the_bundle_identifier_of_an_app() {
     assert_eq!(cleaner_infra::macos::bundle_identifier(dir.path()), None);
 }
 
+#[cfg(target_os = "macos")]
 #[test]
 fn development_builds_do_not_run_from_a_bundle() {
     // Test binaries live in target/, never inside a .app with this id.

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from "vue";
 import { formatBytes, shortenPath } from "@/composables/format";
+import { useSystemTerms } from "@/composables/platform";
 import type { AppFootprintDto } from "@/types/generated/AppFootprintDto";
 import type { UninstallReportDto } from "@/types/generated/UninstallReportDto";
 
@@ -15,6 +16,18 @@ const props = defineProps<{
 const emit = defineEmits<{ confirm: [typed: string]; close: [] }>();
 
 const typed = ref("");
+const terms = useSystemTerms();
+const removal = computed(() => props.footprint?.appRemoval ?? null);
+const warningKey = computed(() => {
+  switch (removal.value?.kind) {
+    case "uninstaller":
+      return "uninstall.warningUninstaller";
+    case "packageManager":
+      return "uninstall.warningPackage";
+    default:
+      return "uninstall.warning";
+  }
+});
 const input = ref<HTMLInputElement | null>(null);
 
 const total = computed(() => props.footprint?.items.reduce((sum, i) => sum + i.size, 0) ?? 0);
@@ -51,18 +64,43 @@ function submit(): void {
 
       <template v-if="report">
         <p data-test="uninstall-result">
-          {{ $t("uninstall.result", { count: report.trashed.length, keys: report.keysRemoved }) }}
+          {{
+            report.uninstallerStarted
+              ? $t("uninstall.uninstallerStarted")
+              : $t("uninstall.result", {
+                  ...terms,
+                  count: report.trashed.length,
+                  keys: report.keysRemoved,
+                })
+          }}
         </p>
         <ul v-if="report.failures.length > 0" class="failures" data-test="uninstall-failures">
           <li v-for="f in report.failures" :key="f.target" class="error">
             <span class="mono">{{ shortenPath(f.target, home) }}</span> — {{ f.reason }}
           </li>
         </ul>
-        <p v-if="report.quitting" class="muted">{{ $t("uninstall.quitting") }}</p>
+        <template v-if="report.manualStep">
+          <p>{{ $t("uninstall.manualStep") }}</p>
+          <code class="command" data-test="uninstall-manual-step">{{ report.manualStep }}</code>
+        </template>
+        <p v-if="report.quitting" class="muted">
+          {{
+            report.uninstallerStarted
+              ? $t("uninstall.quittingUninstaller")
+              : $t("uninstall.quitting", terms)
+          }}
+        </p>
       </template>
 
       <template v-else>
-        <p class="warning">{{ $t("uninstall.warning") }}</p>
+        <p class="warning" data-test="uninstall-warning">{{ $t(warningKey, terms) }}</p>
+        <code
+          v-if="removal?.kind === 'packageManager'"
+          class="command"
+          data-test="uninstall-command"
+        >
+          {{ removal.command }}
+        </code>
         <p v-if="loading" class="muted">{{ $t("common.loading") }}</p>
         <template v-else-if="footprint">
           <ul class="items" data-test="uninstall-items">
@@ -72,13 +110,13 @@ function submit(): void {
               <span class="size">{{ formatBytes(item.size) }}</span>
             </li>
             <li v-if="footprint.storedKeys.length > 0" data-test="uninstall-keys">
-              <span>{{ $t("uninstall.keys") }}</span>
+              <span>{{ $t("uninstall.keys", terms) }}</span>
               <span class="mono path">{{ footprint.storedKeys.join(", ") }}</span>
               <span class="size" />
             </li>
           </ul>
           <p class="muted">{{ $t("uninstall.total", { size: formatBytes(total) }) }}</p>
-          <p v-if="!footprint.bundleFound" class="muted" data-test="uninstall-dev">
+          <p v-if="removal?.kind === 'notInstalled'" class="muted" data-test="uninstall-dev">
             {{ $t("uninstall.noBundle") }}
           </p>
         </template>
@@ -193,6 +231,16 @@ form {
 .actions {
   margin-top: 0.75rem;
   gap: 0.5rem;
+}
+
+.command {
+  display: block;
+  font-family: var(--mono);
+  background: var(--surface-muted);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  margin: 0.5rem 0;
+  user-select: all;
 }
 
 .failures {

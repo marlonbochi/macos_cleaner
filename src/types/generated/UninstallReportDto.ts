@@ -3,6 +3,14 @@ import type { UninstallFailureDto } from "./UninstallFailureDto";
 
 export type UninstallReportDto = { trashed: Array<string>, keysRemoved: number, failures: Array<UninstallFailureDto>, 
 /**
+ * Windows: the uninstaller was started and removes the program and its data.
+ */
+uninstallerStarted: boolean, 
+/**
+ * Linux packages: the command the user still has to run to remove the app.
+ */
+manualStep: string | null, 
+/**
  * The app quits shortly after a successful uninstall.
  */
 quitting: boolean, };

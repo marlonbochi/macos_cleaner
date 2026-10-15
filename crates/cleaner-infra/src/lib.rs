@@ -1,12 +1,15 @@
 //! # cleaner-infra
 //!
 //! Adapters implementing the `cleaner-core` ports: filesystem scanning, SQLite persistence,
-//! AI providers and macOS integrations.
+//! AI providers, secret stores and system integrations (macOS, Windows, Linux).
 
 pub mod ai;
 pub mod db;
 pub mod fs;
+#[cfg(target_os = "macos")]
 pub mod macos;
+pub mod secrets;
+pub mod system;
 
 /// System clock adapter.
 #[derive(Debug, Default, Clone, Copy)]

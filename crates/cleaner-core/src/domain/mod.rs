@@ -6,6 +6,7 @@ pub mod file_entry;
 pub mod footprint;
 pub mod locale;
 pub mod package;
+pub mod platform;
 pub mod risk;
 pub mod scan;
 pub mod size;

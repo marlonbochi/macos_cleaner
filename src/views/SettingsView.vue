@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import UninstallDialog from "@/components/UninstallDialog.vue";
+import { useSystemTerms } from "@/composables/platform";
 import { LOCALE_NAMES, SUPPORTED_LOCALES, isAppLocale } from "@/i18n";
 import { useAiSettingsStore } from "@/stores/aiSettings";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -13,6 +14,7 @@ const preferences = usePreferencesStore();
 const scan = useScanStore();
 const uninstall = useUninstallStore();
 const uninstallOpen = ref(false);
+const terms = useSystemTerms();
 
 onMounted(() => void ai.load());
 
@@ -102,7 +104,7 @@ function closeUninstall(): void {
               spellcheck="false"
               :placeholder="
                 ai.providerInfo.hasApiKey
-                  ? $t('settings.apiKeyPlaceholderSaved')
+                  ? $t('settings.apiKeyPlaceholderSaved', terms)
                   : $t('settings.apiKeyPlaceholder')
               "
             />
@@ -115,7 +117,7 @@ function closeUninstall(): void {
               {{ $t("settings.removeKey") }}
             </button>
           </div>
-          <small class="muted">{{ $t("settings.apiKeyHelp") }}</small>
+          <small class="muted">{{ $t("settings.apiKeyHelp", terms) }}</small>
         </div>
 
         <div class="field">
@@ -183,7 +185,7 @@ function closeUninstall(): void {
             {{ $t("settings.modelsNeedLoad") }}
           </small>
           <small v-else-if="ai.models.length === 0" class="muted" data-test="models-empty">
-            {{ isOllama ? $t("settings.modelsEmptyOllama") : $t("settings.modelsEmpty") }}
+            {{ isOllama ? $t("settings.modelsEmptyOllama", terms) : $t("settings.modelsEmpty") }}
           </small>
           <small v-if="ai.savedModelMissing" class="warning-text" data-test="saved-model-missing">
             {{ $t("settings.savedModelMissing", { model: ai.saved?.model }) }}
@@ -214,7 +216,7 @@ function closeUninstall(): void {
         {{ $t("settings.connected", ai.testResult) }}
       </p>
       <p v-else-if="ai.message" class="success" data-test="message">
-        {{ $t(`settings.${ai.message}`) }}
+        {{ $t(`settings.${ai.message}`, terms) }}
       </p>
       <p v-if="ai.error" class="error" role="alert">
         {{ $t("errors.generic", { message: ai.error }) }}
@@ -228,7 +230,7 @@ function closeUninstall(): void {
 
     <section class="card danger-zone">
       <h2>{{ $t("uninstall.title") }}</h2>
-      <p class="muted">{{ $t("uninstall.description") }}</p>
+      <p class="muted">{{ $t("uninstall.description", terms) }}</p>
       <button class="danger" data-test="open-uninstall" @click="openUninstall">
         {{ $t("uninstall.open") }}
       </button>

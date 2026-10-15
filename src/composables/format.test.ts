@@ -62,4 +62,15 @@ describe("paths", () => {
     expect(parentPath("/Users")).toBe("/");
     expect(parentPath("/")).toBe("/");
   });
+
+  it("understands Windows paths", () => {
+    expect(shortenPath("C:\\Users\\Bob\\Videos\\a.mp4", "C:\\Users\\Bob")).toBe("~\\Videos\\a.mp4");
+    expect(shortenPath("C:\\Users\\Bobby\\x", "C:\\Users\\Bob")).toBe("C:\\Users\\Bobby\\x");
+    expect(parentPath("C:\\Users\\Bob\\Videos")).toBe("C:\\Users\\Bob");
+    expect(parentPath("C:\\Users\\")).toBe("C:\\");
+    expect(parentPath("C:\\Windows")).toBe("C:\\");
+    expect(parentPath("C:\\")).toBe("C:\\");
+    // On Unix a backslash is an ordinary file-name character.
+    expect(parentPath("/tmp/a\\b")).toBe("/tmp");
+  });
 });

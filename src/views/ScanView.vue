@@ -17,6 +17,8 @@ const router = useRouter();
 const SIZE_OPTIONS = [10, 50, 100, 250, 500, 1000].map((mb) => mb * 1_000_000);
 
 const home = computed(() => scan.defaults?.home ?? null);
+const applications = computed(() => scan.defaults?.applications ?? []);
+const disks = computed(() => scan.defaults?.disks ?? ["/"]);
 const showProgress = computed(() => scan.isRunning || scan.progress !== null);
 const canStart = computed(() => !scan.isRunning && scan.roots.length > 0);
 
@@ -61,11 +63,26 @@ async function addFolders(): Promise<void> {
         <button v-if="home" :disabled="scan.isRunning" @click="scan.addRoot(home)">
           {{ $t("scan.home") }}
         </button>
-        <button :disabled="scan.isRunning" @click="scan.addRoot('/Applications')">
+        <button
+          v-if="applications.length > 0"
+          :disabled="scan.isRunning"
+          data-test="applications"
+          @click="applications.forEach(scan.addRoot)"
+        >
           {{ $t("scan.applications") }}
         </button>
-        <button :disabled="scan.isRunning" data-test="whole-disk" @click="scan.addRoot('/')">
-          {{ $t("scan.wholeDisk") }}
+        <button
+          v-for="disk in disks"
+          :key="disk"
+          :disabled="scan.isRunning"
+          data-test="whole-disk"
+          @click="scan.addRoot(disk)"
+        >
+          {{
+            disks.length === 1
+              ? $t("scan.wholeDisk")
+              : $t("scan.drive", { name: disk.replace(/\\$/, "") })
+          }}
         </button>
         <button :disabled="scan.isRunning" @click="addFolders">{{ $t("scan.addFolder") }}</button>
       </div>

@@ -5,6 +5,9 @@ import { aiSettings } from "@/test/factories";
 import { FakeTransport } from "@/test/fakeTransport";
 import { mountWithPlugins } from "@/test/mount";
 import type { AppFootprintDto } from "@/types/generated/AppFootprintDto";
+import type { AppRemovalDto } from "@/types/generated/AppRemovalDto";
+import type { PlatformDto } from "@/types/generated/PlatformDto";
+import type { UninstallReportDto } from "@/types/generated/UninstallReportDto";
 import SettingsView from "./SettingsView.vue";
 
 const footprint = (bundleFound = true): AppFootprintDto => ({
@@ -21,11 +24,15 @@ const footprint = (bundleFound = true): AppFootprintDto => ({
     },
   ],
   storedKeys: ["anthropic"],
-  bundleFound,
+  appRemoval: bundleFound ? { kind: "trash" } : { kind: "notInstalled" },
   confirmationPhrase: "Disk Cleaner",
 });
 
-function backend(found = footprint()) {
+function backend(
+  found = footprint(),
+  platform: PlatformDto = "macos",
+  report: Partial<UninstallReportDto> = {},
+) {
   const transport = new FakeTransport()
     .on("get_ai_settings", () => aiSettings())
     .on("list_ai_models", () => [])
@@ -33,6 +40,9 @@ function backend(found = footprint()) {
       roots: ["/Users/alice"],
       home: "/Users/alice",
       minFileSize: 100_000_000,
+      platform,
+      applications: [],
+      disks: ["/"],
     }))
     .on("get_latest_scan", () => null)
     .on("get_permissions_status", () => ({ fullDiskAccess: true }))
@@ -41,7 +51,10 @@ function backend(found = footprint()) {
       trashed: found.items.map((i) => i.path),
       keysRemoved: 1,
       failures: [],
+      uninstallerStarted: false,
+      manualStep: null,
       quitting: true,
+      ...report,
     }));
   provideApi(transport);
   return transport;
@@ -116,5 +129,47 @@ describe("Uninstall", () => {
     await flushPromises();
     expect(wrapper.find('[role="alert"]').text()).toContain("type the phrase");
     expect(wrapper.find('[data-test="uninstall-confirm"]').attributes("disabled")).toBeUndefined();
+  });
+
+  it("hands everything to the Windows uninstaller", async () => {
+    const removal: AppRemovalDto = {
+      kind: "uninstaller",
+      program: "C:\\Users\\bob\\AppData\\Local\\Disk Cleaner\\uninstall.exe",
+    };
+    backend({ ...footprint(), appRemoval: removal }, "windows", {
+      trashed: [],
+      uninstallerStarted: true,
+    });
+    const { wrapper } = await openDialog();
+    expect(wrapper.find('[data-test="uninstall-warning"]').text()).toContain(
+      "desinstalador do Windows remove o programa",
+    );
+    expect(wrapper.find('[data-test="uninstall-keys"]').text()).toContain(
+      "Gerenciador de Credenciais",
+    );
+
+    await wrapper.find("#uninstall-confirm").setValue("Disk Cleaner");
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+    expect(wrapper.find('[data-test="uninstall-result"]').text()).toContain(
+      "O desinstalador do Windows está rodando",
+    );
+    expect(wrapper.text()).toContain("para o desinstalador terminar");
+  });
+
+  it("shows the apt command on Linux", async () => {
+    const command = "sudo apt remove disk-cleaner";
+    backend({ ...footprint(), appRemoval: { kind: "packageManager", command } }, "linux", {
+      manualStep: command,
+    });
+    const { wrapper } = await openDialog();
+    expect(wrapper.find('[data-test="uninstall-command"]').text()).toBe(command);
+    expect(wrapper.find('[data-test="uninstall-warning"]').text()).toContain("para a Lixeira");
+
+    await wrapper.find("#uninstall-confirm").setValue("Disk Cleaner");
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+    expect(wrapper.find('[data-test="uninstall-manual-step"]').text()).toBe(command);
+    expect(wrapper.text()).toContain("Esvazie a Lixeira");
   });
 });

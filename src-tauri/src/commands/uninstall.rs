@@ -35,7 +35,8 @@ pub async fn uninstall_app(
         .await
         .map_err(|e| AppError::new(ErrorCode::Internal, e.to_string()))??;
     // Once anything is gone the app can no longer work reliably, so it quits.
-    let quitting = !report.trashed.is_empty() || report.keys_removed > 0;
+    let quitting =
+        !report.trashed.is_empty() || report.keys_removed > 0 || report.uninstaller_started;
     if quitting {
         std::thread::spawn(move || {
             std::thread::sleep(QUIT_DELAY);
