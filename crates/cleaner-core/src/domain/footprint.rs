@@ -75,6 +75,21 @@ impl FootprintLocation {
     }
 }
 
+/// How the app itself (not its data) is removed, which depends on how it was installed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AppRemoval {
+    /// macOS: the `.app` bundle is one of the footprint locations and goes to the Trash.
+    Trash,
+    /// Windows: the installer's uninstaller removes the program and the data folders, which
+    /// Windows keeps locked while the app runs.
+    Uninstaller { program: PathBuf, args: Vec<String> },
+    /// Linux packages: removing the app needs the package manager (and an administrator), so the
+    /// user is given the command.
+    PackageManager { command: String },
+    /// Development build: there is no installed app to remove.
+    NotInstalled,
+}
+
 /// A location that exists right now, with its size.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FootprintItem {

@@ -8,10 +8,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::domain::ai::AiProviderKind;
-use crate::domain::footprint::{FootprintItem, FootprintKind, FootprintLocation};
+use crate::domain::footprint::{AppRemoval, FootprintItem, FootprintKind, FootprintLocation};
 use crate::error::{CoreError, DomainError};
 use crate::ports::ai::SecretStore;
-use crate::ports::system::{DiskUsage, Trash};
+use crate::ports::system::{DiskUsage, Launcher, Trash};
 
 /// What the user must type to confirm the uninstall.
 pub const CONFIRMATION_PHRASE: &str = "Disk Cleaner";
@@ -23,8 +23,8 @@ pub struct AppFootprint {
     pub items: Vec<FootprintItem>,
     /// Providers with an API key in the Keychain.
     pub stored_keys: Vec<AiProviderKind>,
-    /// `false` when the app does not run from a `.app` bundle (development builds).
-    pub bundle_found: bool,
+    /// How the app itself will be removed.
+    pub app_removal: AppRemoval,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,14 +38,34 @@ pub struct UninstallReport {
     pub trashed: Vec<PathBuf>,
     pub keys_removed: usize,
     pub failures: Vec<UninstallFailure>,
+    /// Windows: the uninstaller was started and removes the program and its data.
+    pub uninstaller_started: bool,
+    /// Linux packages: the command the user still has to run to remove the app.
+    pub manual_step: Option<String>,
 }
 
 #[derive(Clone)]
 pub struct UninstallService {
     locations: Vec<FootprintLocation>,
+    app_removal: AppRemoval,
     usage: Arc<dyn DiskUsage>,
     trash: Arc<dyn Trash>,
     secrets: Arc<dyn SecretStore>,
+    launcher: Arc<dyn Launcher>,
+}
+
+/// The system services the uninstaller acts through.
+pub struct UninstallPorts {
+    pub usage: Arc<dyn DiskUsage>,
+    pub trash: Arc<dyn Trash>,
+    pub secrets: Arc<dyn SecretStore>,
+    pub launcher: Arc<dyn Launcher>,
+}
+
+impl std::fmt::Debug for UninstallPorts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UninstallPorts").finish_non_exhaustive()
+    }
 }
 
 impl std::fmt::Debug for UninstallService {
@@ -60,16 +80,17 @@ impl UninstallService {
     /// `locations` are validated `FootprintLocation`s; the app bundle is always handled last.
     pub fn new(
         mut locations: Vec<FootprintLocation>,
-        usage: Arc<dyn DiskUsage>,
-        trash: Arc<dyn Trash>,
-        secrets: Arc<dyn SecretStore>,
+        app_removal: AppRemoval,
+        ports: UninstallPorts,
     ) -> Self {
         locations.sort_by_key(|l| l.kind() == FootprintKind::AppBundle);
         Self {
             locations,
-            usage,
-            trash,
-            secrets,
+            app_removal,
+            usage: ports.usage,
+            trash: ports.trash,
+            secrets: ports.secrets,
+            launcher: ports.launcher,
         }
     }
 
@@ -97,14 +118,12 @@ impl UninstallService {
         Ok(AppFootprint {
             items,
             stored_keys,
-            bundle_found: self
-                .locations
-                .iter()
-                .any(|l| l.kind() == FootprintKind::AppBundle),
+            app_removal: self.app_removal.clone(),
         })
     }
 
-    /// Removes the Keychain entries, then moves every existing location to the Trash.
+    /// Removes the stored API keys, then moves every existing location to the Trash — or, on
+    /// Windows, starts the uninstaller, which removes the program and its (locked) data folders.
     /// Keeps going after a failure and reports every item that could not be removed.
     pub fn uninstall(&self, confirmation: &str) -> Result<UninstallReport, CoreError> {
         if confirmation.trim() != CONFIRMATION_PHRASE {
@@ -128,6 +147,21 @@ impl UninstallService {
                     reason: e.to_string(),
                 }),
             }
+        }
+        match &self.app_removal {
+            AppRemoval::Uninstaller { program, args } => {
+                match self.launcher.spawn(program, args) {
+                    Ok(()) => report.uninstaller_started = true,
+                    Err(e) => report.failures.push(failure(program, &e)),
+                }
+                tracing::info!(
+                    started = report.uninstaller_started,
+                    "uninstaller handed over"
+                );
+                return Ok(report);
+            }
+            AppRemoval::PackageManager { command } => report.manual_step = Some(command.clone()),
+            AppRemoval::Trash | AppRemoval::NotInstalled => {}
         }
         for location in &self.locations {
             let path = location.path();
@@ -171,6 +205,39 @@ mod tests {
 
     use crate::domain::size::ByteSize;
     use crate::testing::InMemorySecretStore;
+
+    /// Records the programs it was asked to start.
+    #[derive(Default)]
+    struct FakeLauncher {
+        started: Mutex<Vec<(PathBuf, Vec<String>)>>,
+        fail: bool,
+    }
+
+    impl Launcher for FakeLauncher {
+        fn spawn(&self, program: &Path, args: &[String]) -> io::Result<()> {
+            if self.fail {
+                return Err(io::Error::new(io::ErrorKind::NotFound, "missing"));
+            }
+            self.started
+                .lock()
+                .unwrap()
+                .push((program.to_path_buf(), args.to_vec()));
+            Ok(())
+        }
+    }
+
+    fn ports(
+        disk: &Arc<FakeDisk>,
+        secrets: Arc<InMemorySecretStore>,
+        launcher: Arc<FakeLauncher>,
+    ) -> UninstallPorts {
+        UninstallPorts {
+            usage: disk.clone(),
+            trash: disk.clone(),
+            secrets,
+            launcher,
+        }
+    }
 
     const ID: &str = "com.example.cleaner";
 
@@ -235,9 +302,8 @@ mod tests {
                 loc(FootprintKind::Cache, CACHE),
                 loc(FootprintKind::Preferences, PREFS),
             ],
-            disk.clone(),
-            disk.clone(),
-            secrets.clone(),
+            AppRemoval::Trash,
+            ports(&disk, secrets.clone(), Arc::default()),
         );
         (service, disk, secrets)
     }
@@ -250,7 +316,7 @@ mod tests {
         assert_eq!(paths, [DATA, CACHE, BUNDLE].map(PathBuf::from));
         assert_eq!(footprint.items[0].size, ByteSize::new(7_000_000));
         assert_eq!(footprint.stored_keys, [AiProviderKind::Anthropic]);
-        assert!(footprint.bundle_found);
+        assert_eq!(footprint.app_removal, AppRemoval::Trash);
     }
 
     #[test]
@@ -302,14 +368,95 @@ mod tests {
     }
 
     #[test]
-    fn development_builds_have_no_bundle_to_remove() {
+    fn windows_hands_the_program_and_data_to_the_uninstaller() {
+        let disk = Arc::new(FakeDisk::default());
+        disk.sizes.lock().unwrap().insert(PathBuf::from(DATA), 7);
+        let secrets = Arc::new(InMemorySecretStore::default());
+        secrets
+            .set(&AiProviderKind::OpenAi.secret_key(), "sk")
+            .unwrap();
+        let launcher = Arc::new(FakeLauncher::default());
+        let program = PathBuf::from(r"C:\Users\a\AppData\Local\Cleaner\uninstall.exe");
+        let service = UninstallService::new(
+            vec![loc(FootprintKind::AppData, DATA)],
+            AppRemoval::Uninstaller {
+                program: program.clone(),
+                args: vec!["/P".into()],
+            },
+            ports(&disk, secrets.clone(), launcher.clone()),
+        );
+
+        let report = service.uninstall(CONFIRMATION_PHRASE).unwrap();
+
+        assert!(report.uninstaller_started);
+        assert_eq!(
+            report.keys_removed, 1,
+            "keys live outside the uninstaller's reach"
+        );
+        assert!(
+            report.trashed.is_empty(),
+            "locked folders are left to the uninstaller"
+        );
+        assert!(disk.trashed.lock().unwrap().is_empty());
+        assert_eq!(
+            *launcher.started.lock().unwrap(),
+            [(program, vec!["/P".to_owned()])]
+        );
+    }
+
+    #[test]
+    fn a_missing_uninstaller_is_reported() {
+        let disk = Arc::new(FakeDisk::default());
+        let service = UninstallService::new(
+            vec![],
+            AppRemoval::Uninstaller {
+                program: PathBuf::from("/nowhere/uninstall.exe"),
+                args: vec![],
+            },
+            ports(
+                &disk,
+                Arc::default(),
+                Arc::new(FakeLauncher {
+                    fail: true,
+                    ..FakeLauncher::default()
+                }),
+            ),
+        );
+        let report = service.uninstall(CONFIRMATION_PHRASE).unwrap();
+        assert!(!report.uninstaller_started);
+        assert_eq!(report.failures.len(), 1);
+    }
+
+    #[test]
+    fn linux_packages_trash_the_data_and_return_the_apt_command() {
+        let disk = Arc::new(FakeDisk::default());
+        disk.sizes.lock().unwrap().insert(PathBuf::from(DATA), 7);
+        let service = UninstallService::new(
+            vec![loc(FootprintKind::AppData, DATA)],
+            AppRemoval::PackageManager {
+                command: "sudo apt remove disk-cleaner".into(),
+            },
+            ports(&disk, Arc::default(), Arc::default()),
+        );
+        let report = service.uninstall(CONFIRMATION_PHRASE).unwrap();
+        assert_eq!(report.trashed, [PathBuf::from(DATA)]);
+        assert_eq!(
+            report.manual_step.as_deref(),
+            Some("sudo apt remove disk-cleaner")
+        );
+    }
+
+    #[test]
+    fn development_builds_have_no_app_to_remove() {
         let disk = Arc::new(FakeDisk::default());
         let service = UninstallService::new(
             vec![loc(FootprintKind::AppData, DATA)],
-            disk.clone(),
-            disk,
-            Arc::new(InMemorySecretStore::default()),
+            AppRemoval::NotInstalled,
+            ports(&disk, Arc::default(), Arc::default()),
         );
-        assert!(!service.footprint().unwrap().bundle_found);
+        assert_eq!(
+            service.footprint().unwrap().app_removal,
+            AppRemoval::NotInstalled
+        );
     }
 }

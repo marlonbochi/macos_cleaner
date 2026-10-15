@@ -722,13 +722,27 @@ mod tests {
         let win = |path: &str, kind| analyze_on(Platform::Windows, r"C:\Users\Bob", path, kind);
 
         let temp = win(r"C:\Users\Bob\AppData\Local\Temp", FileKind::Directory);
-        assert_eq!((temp.level, temp.category), (RiskLevel::Safe, RiskCategory::Cache));
+        assert_eq!(
+            (temp.level, temp.category),
+            (RiskLevel::Safe, RiskCategory::Cache)
+        );
 
         let hiber = win(r"C:\hiberfil.sys", FileKind::File);
-        assert!(hiber.commands.iter().any(|c| c.command == "powercfg /hibernate off"));
+        assert!(
+            hiber
+                .commands
+                .iter()
+                .any(|c| c.command == "powercfg /hibernate off")
+        );
 
-        assert_eq!(win(r"C:\pagefile.sys", FileKind::File).level, RiskLevel::Dangerous);
-        assert_eq!(win(r"D:\Windows.old", FileKind::Directory).category, RiskCategory::Backup);
+        assert_eq!(
+            win(r"C:\pagefile.sys", FileKind::File).level,
+            RiskLevel::Dangerous
+        );
+        assert_eq!(
+            win(r"D:\Windows.old", FileKind::Directory).category,
+            RiskCategory::Backup
+        );
         assert_eq!(
             win(r"C:\Program Files\Some App", FileKind::Directory).category,
             RiskCategory::AppBundle
@@ -743,8 +757,11 @@ mod tests {
             RiskCategory::Installer
         );
         assert_eq!(
-            win(r"C:\Program Files (x86)\Steam\steamapps\common\Game", FileKind::Directory)
-                .category,
+            win(
+                r"C:\Program Files (x86)\Steam\steamapps\common\Game",
+                FileKind::Directory
+            )
+            .category,
             RiskCategory::Game
         );
         assert_eq!(
@@ -767,19 +784,30 @@ mod tests {
         let linux = |path: &str, kind| analyze_on(Platform::Linux, "/home/bob", path, kind);
 
         let journal = linux("/var/log/journal", FileKind::Directory);
-        assert!(journal.commands.iter().any(|c| c.command.contains("journalctl --vacuum-size")));
+        assert!(
+            journal
+                .commands
+                .iter()
+                .any(|c| c.command.contains("journalctl --vacuum-size"))
+        );
         assert!(
             linux("/var/cache/apt/archives", FileKind::Directory)
                 .commands
                 .iter()
                 .any(|c| c.command == "sudo apt clean")
         );
-        assert_eq!(linux("/home/bob/.cache/mozilla", FileKind::Directory).level, RiskLevel::Safe);
+        assert_eq!(
+            linux("/home/bob/.cache/mozilla", FileKind::Directory).level,
+            RiskLevel::Safe
+        );
         assert_eq!(
             linux("/home/bob/.local/share/Trash/files/x.iso", FileKind::File).level,
             RiskLevel::Safe
         );
-        assert_eq!(linux("/opt/google", FileKind::Directory).category, RiskCategory::AppBundle);
+        assert_eq!(
+            linux("/opt/google", FileKind::Directory).category,
+            RiskCategory::AppBundle
+        );
         assert_eq!(
             linux("/home/bob/Downloads/app.deb", FileKind::File).category,
             RiskCategory::Installer
@@ -793,8 +821,16 @@ mod tests {
 
     #[test]
     fn windows_paths_are_never_matched_by_unix_rules() {
-        let v = analyze_on(Platform::MacOs, "/Users/bob", "/var/cache/apt", FileKind::Directory);
-        assert_ne!(v.commands.first().map(|c| c.command.as_str()), Some("sudo apt clean"));
+        let v = analyze_on(
+            Platform::MacOs,
+            "/Users/bob",
+            "/var/cache/apt",
+            FileKind::Directory,
+        );
+        assert_ne!(
+            v.commands.first().map(|c| c.command.as_str()),
+            Some("sudo apt clean")
+        );
     }
 
     #[test]

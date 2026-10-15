@@ -1,10 +1,8 @@
 //! Thin wrappers around macOS system facilities.
 
 mod keychain;
-mod trash;
 
 pub use keychain::KeychainSecretStore;
-pub use trash::MacTrash;
 
 use std::io;
 use std::path::{Path, PathBuf};

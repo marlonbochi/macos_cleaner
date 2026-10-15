@@ -8,7 +8,8 @@ use crate::domain::risk::{Recommendation, RiskCategory, RiskLevel};
 
 /// `X:/...`: any drive letter, since Windows may live on another drive.
 fn on_any_drive(path: &str, rest: &str) -> bool {
-    path.get(1..).is_some_and(|p| p == format!(":/{rest}") || p.starts_with(&format!(":/{rest}/")))
+    path.get(1..)
+        .is_some_and(|p| p == format!(":/{rest}") || p.starts_with(&format!(":/{rest}/")))
 }
 
 pub(super) static RULES: &[Rule] = &[
@@ -26,7 +27,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Safe,
                 RiskCategory::Cache,
-                ("Windows temporary files.", "Arquivos temporários do Windows."),
+                (
+                    "Windows temporary files.",
+                    "Arquivos temporários do Windows.",
+                ),
                 (
                     "Programs leave temporary files here; files still in use are skipped when cleaning.",
                     "Programas deixam arquivos temporários aqui; arquivos em uso são ignorados na limpeza.",
@@ -86,9 +90,7 @@ pub(super) static RULES: &[Rule] = &[
         },
     },
     Rule {
-        matches: |i| {
-            on_any_drive(&i.path, "pagefile.sys") || on_any_drive(&i.path, "swapfile.sys")
-        },
+        matches: |i| on_any_drive(&i.path, "pagefile.sys") || on_any_drive(&i.path, "swapfile.sys"),
         verdict: |_, l| {
             v(
                 l,
@@ -118,7 +120,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Dangerous,
                 RiskCategory::System,
-                ("Windows component store.", "Repositório de componentes do Windows."),
+                (
+                    "Windows component store.",
+                    "Repositório de componentes do Windows.",
+                ),
                 (
                     "Essential to Windows; never delete it by hand. DISM can clean up old versions of components safely.",
                     "Essencial para o Windows; nunca apague à mão. O DISM limpa versões antigas de componentes com segurança.",
@@ -251,7 +256,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Safe,
                 RiskCategory::Cache,
-                ("Developer package cache.", "Cache de pacotes de desenvolvimento."),
+                (
+                    "Developer package cache.",
+                    "Cache de pacotes de desenvolvimento.",
+                ),
                 (
                     "Packages are downloaded again when a project needs them.",
                     "Os pacotes são baixados de novo quando um projeto precisar.",
@@ -285,7 +293,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Caution,
                 RiskCategory::VmImage,
-                ("WSL or Docker virtual disk.", "Disco virtual do WSL ou do Docker."),
+                (
+                    "WSL or Docker virtual disk.",
+                    "Disco virtual do WSL ou do Docker.",
+                ),
                 (
                     "It holds a whole Linux system or Docker data. Clean up inside it; deleting the file loses everything in it.",
                     "Contém um sistema Linux inteiro ou dados do Docker. Limpe por dentro; apagar o arquivo perde tudo.",
@@ -301,7 +312,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Caution,
                 RiskCategory::UserDocument,
-                ("Folder synced with OneDrive.", "Pasta sincronizada com o OneDrive."),
+                (
+                    "Folder synced with OneDrive.",
+                    "Pasta sincronizada com o OneDrive.",
+                ),
                 (
                     "Deleting here also deletes it in the cloud. To free space, right-click it and choose \"Free up space\" to keep it only online.",
                     "Apagar aqui apaga também na nuvem. Para liberar espaço, clique com o botão direito e escolha \"Liberar espaço\" para mantê-la só online.",
@@ -347,7 +361,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Safe,
                 RiskCategory::Cache,
-                ("Program or browser cache.", "Cache de programa ou navegador."),
+                (
+                    "Program or browser cache.",
+                    "Cache de programa ou navegador.",
+                ),
                 (
                     "Caches are recreated automatically; the program may be slower the first time it opens.",
                     "Caches são recriados automaticamente; o programa pode ficar mais lento na primeira abertura.",

@@ -6,11 +6,13 @@
 mod commands;
 pub mod dto;
 pub mod error;
+mod platform;
 mod state;
 
 use tauri::Manager;
 use tracing_subscriber::EnvFilter;
 
+use crate::platform::AppDirs;
 use crate::state::AppState;
 
 fn init_tracing() {
@@ -23,7 +25,14 @@ fn init_tracing() {
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let paths = app.path();
     let bundle_id = app.config().identifier.clone();
-    let state = AppState::build(&paths.app_data_dir()?, paths.home_dir()?, &bundle_id)?;
+    let dirs = AppDirs {
+        data: paths.app_data_dir()?,
+        local_data: paths.app_local_data_dir()?,
+        config: paths.app_config_dir()?,
+        cache: paths.app_cache_dir()?,
+        logs: paths.app_log_dir()?,
+    };
+    let state = AppState::build(&dirs, paths.home_dir()?, &bundle_id)?;
     app.manage(state);
     Ok(())
 }

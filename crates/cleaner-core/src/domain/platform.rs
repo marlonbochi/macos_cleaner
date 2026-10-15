@@ -84,7 +84,11 @@ mod tests {
     #[test]
     fn normalises_paths_for_matching() {
         assert_eq!(
-            normalized_path("/Users/Alice/Library/Caches", "/Users/Alice", Platform::MacOs),
+            normalized_path(
+                "/Users/Alice/Library/Caches",
+                "/Users/Alice",
+                Platform::MacOs
+            ),
             "~/library/caches"
         );
         assert_eq!(
@@ -99,7 +103,10 @@ mod tests {
             normalized_path(r"C:\Windows\WinSxS", r"C:\Users\Alice", Platform::Windows),
             "c:/windows/winsxs"
         );
-        assert_eq!(normalized_path("/home/bob", "/home/bob/", Platform::Linux), "~");
+        assert_eq!(
+            normalized_path("/home/bob", "/home/bob/", Platform::Linux),
+            "~"
+        );
         assert_eq!(
             normalized_path("/home/bobby/x", "/home/bob", Platform::Linux),
             "/home/bobby/x",

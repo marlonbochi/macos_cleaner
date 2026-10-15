@@ -281,6 +281,7 @@ pub struct PermissionTargetDto {
     pub is_dev_host: bool,
 }
 
+#[cfg(target_os = "macos")]
 impl From<cleaner_infra::macos::PermissionTarget> for PermissionTargetDto {
     fn from(t: cleaner_infra::macos::PermissionTarget) -> Self {
         Self {
@@ -299,6 +300,32 @@ pub struct ScanDefaultsDto {
     pub home: String,
     #[ts(type = "number")]
     pub min_file_size: u64,
+    /// The system the app runs on; the UI adapts its wording and options.
+    pub platform: PlatformDto,
+    /// Where applications are installed (quick picks on the scan screen).
+    pub applications: Vec<String>,
+    /// Whole-disk roots: `/` on macOS and Linux, each drive on Windows.
+    pub disks: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export)]
+pub enum PlatformDto {
+    Macos,
+    Windows,
+    Linux,
+}
+
+impl From<cleaner_core::domain::platform::Platform> for PlatformDto {
+    fn from(p: cleaner_core::domain::platform::Platform) -> Self {
+        use cleaner_core::domain::platform::Platform;
+        match p {
+            Platform::MacOs => Self::Macos,
+            Platform::Windows => Self::Windows,
+            Platform::Linux => Self::Linux,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -372,7 +399,7 @@ mod tests {
 // ── AI analysis (US2) ─────────────────────────────────────────────────────
 
 use cleaner_core::domain::ai::{AiProviderKind, AiSettings};
-use cleaner_core::domain::footprint::FootprintKind;
+use cleaner_core::domain::footprint::{AppRemoval, FootprintKind};
 use cleaner_core::domain::risk::{AssessmentSource, Recommendation, RiskAssessment, RiskLevel};
 use cleaner_core::services::analysis_service::AnalysisOutcome;
 use cleaner_core::services::diagnosis_service::DiagnosisItem;
@@ -689,8 +716,8 @@ pub struct FootprintItemDto {
 pub struct AppFootprintDto {
     pub items: Vec<FootprintItemDto>,
     pub stored_keys: Vec<AiProviderIdDto>,
-    /// `false` in development builds: the app itself cannot be located.
-    pub bundle_found: bool,
+    /// How the app itself is removed on this system.
+    pub app_removal: AppRemovalDto,
     /// What the user must type to confirm.
     pub confirmation_phrase: String,
 }
@@ -708,8 +735,33 @@ impl From<AppFootprint> for AppFootprintDto {
                 })
                 .collect(),
             stored_keys: f.stored_keys.into_iter().map(Into::into).collect(),
-            bundle_found: f.bundle_found,
+            app_removal: f.app_removal.into(),
             confirmation_phrase: CONFIRMATION_PHRASE.to_owned(),
+        }
+    }
+}
+
+/// How the app itself is removed: moved to the Trash (macOS), by the Windows uninstaller, by the
+/// package manager (Linux, a command for the user) or not at all (development builds).
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export)]
+pub enum AppRemovalDto {
+    Trash,
+    Uninstaller { program: String },
+    PackageManager { command: String },
+    NotInstalled,
+}
+
+impl From<AppRemoval> for AppRemovalDto {
+    fn from(r: AppRemoval) -> Self {
+        match r {
+            AppRemoval::Trash => Self::Trash,
+            AppRemoval::Uninstaller { program, .. } => Self::Uninstaller {
+                program: program.display().to_string(),
+            },
+            AppRemoval::PackageManager { command } => Self::PackageManager { command },
+            AppRemoval::NotInstalled => Self::NotInstalled,
         }
     }
 }
@@ -729,6 +781,10 @@ pub struct UninstallReportDto {
     pub trashed: Vec<String>,
     pub keys_removed: u32,
     pub failures: Vec<UninstallFailureDto>,
+    /// Windows: the uninstaller was started and removes the program and its data.
+    pub uninstaller_started: bool,
+    /// Linux packages: the command the user still has to run to remove the app.
+    pub manual_step: Option<String>,
     /// The app quits shortly after a successful uninstall.
     pub quitting: bool,
 }
@@ -746,6 +802,8 @@ impl UninstallReportDto {
                     reason: f.reason,
                 })
                 .collect(),
+            uninstaller_started: r.uninstaller_started,
+            manual_step: r.manual_step,
             quitting,
         }
     }

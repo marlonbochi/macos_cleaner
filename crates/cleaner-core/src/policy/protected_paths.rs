@@ -232,7 +232,11 @@ impl ProtectedPathPolicyBuilder {
     pub fn build(self) -> ProtectedPathPolicy {
         let mut policy = self.policy;
         if policy.case_insensitive {
-            for list in [&mut policy.trees, &mut policy.allowed_trees, &mut policy.exact] {
+            for list in [
+                &mut policy.trees,
+                &mut policy.allowed_trees,
+                &mut policy.exact,
+            ] {
                 for path in list.iter_mut() {
                     *path = PathBuf::from(path.to_string_lossy().to_lowercase());
                 }

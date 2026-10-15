@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { formatBytes, shortenPath } from "@/composables/format";
+import { useSystemTerms } from "@/composables/platform";
 import type { AnalysisDto } from "@/types/generated/AnalysisDto";
 import type { FileEntryDto } from "@/types/generated/FileEntryDto";
 import RiskBadge from "./RiskBadge.vue";
@@ -17,6 +18,7 @@ const props = defineProps<{
 defineEmits<{ close: []; reanalyze: []; reveal: [path: string] }>();
 
 const { t } = useI18n();
+const terms = useSystemTerms();
 const copied = ref<string | null>(null);
 
 const sourceLabel = computed(() => {
@@ -73,7 +75,7 @@ async function copy(command: string): Promise<void> {
         <section>
           <h3>{{ $t("analysis.recommendation") }}</h3>
           <p data-test="recommendation">
-            {{ $t(`analysis.recommendations.${analysis.recommendation}`) }}
+            {{ $t(`analysis.recommendations.${analysis.recommendation}`, terms) }}
           </p>
         </section>
 
@@ -86,7 +88,7 @@ async function copy(command: string): Promise<void> {
 
         <section v-if="analysis.commands.length > 0" data-test="commands">
           <h3>{{ $t("analysis.commands") }}</h3>
-          <p class="muted note">{{ $t("analysis.commandsNote") }}</p>
+          <p class="muted note">{{ $t("analysis.commandsNote", terms) }}</p>
           <div v-for="cmd in analysis.commands" :key="cmd.command" class="command">
             <div class="row">
               <code class="mono">{{ cmd.command }}</code>
@@ -109,7 +111,9 @@ async function copy(command: string): Promise<void> {
         <button :disabled="analyzing" data-test="reanalyze" @click="$emit('reanalyze')">
           {{ $t("analysis.again") }}
         </button>
-        <button @click="$emit('reveal', item.path)">{{ $t("common.revealInFinder") }}</button>
+        <button @click="$emit('reveal', item.path)">
+          {{ $t("common.revealInFinder", terms) }}
+        </button>
       </footer>
     </aside>
   </div>

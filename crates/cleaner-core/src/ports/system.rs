@@ -16,3 +16,8 @@ pub trait DiskUsage: Send + Sync {
     /// `Ok(None)` when the path does not exist.
     fn size_on_disk(&self, path: &Path) -> io::Result<Option<ByteSize>>;
 }
+
+/// Starts another program without waiting for it (e.g. the Windows uninstaller).
+pub trait Launcher: Send + Sync {
+    fn spawn(&self, program: &Path, args: &[String]) -> io::Result<()>;
+}

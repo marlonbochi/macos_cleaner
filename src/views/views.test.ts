@@ -85,6 +85,54 @@ describe("ScanView", () => {
   });
 });
 
+describe("ScanView on Windows", () => {
+  it("offers each drive and the program folders, and talks about Explorer", async () => {
+    const transport = backend(scanSummary({ id: 3 }));
+    transport.on("get_scan_defaults", () => ({
+      roots: ["C:\\Users\\bob"],
+      home: "C:\\Users\\bob",
+      minFileSize: 100_000_000,
+      platform: "windows",
+      applications: ["C:\\Program Files", "C:\\Program Files (x86)"],
+      disks: ["C:\\", "D:\\"],
+    }));
+    transport.on("get_permissions_status", () => ({ fullDiskAccess: true, target: null }));
+    const { wrapper } = await mountWithPlugins(ScanView);
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("Acesso Total ao Disco");
+    const drives = wrapper.findAll('[data-test="whole-disk"]').map((b) => b.text());
+    expect(drives).toEqual(["Disco C:", "Disco D:"]);
+
+    await wrapper.find('[data-test="applications"]').trigger("click");
+    await wrapper.findAll('[data-test="whole-disk"]')[1]?.trigger("click");
+    const { useScanStore } = await import("@/stores/scan");
+    expect(useScanStore().roots).toEqual([
+      "C:\\Users\\bob",
+      "C:\\Program Files",
+      "C:\\Program Files (x86)",
+      "D:\\",
+    ]);
+  });
+
+  it("labels the reveal button after the system's file manager", async () => {
+    const transport = backend();
+    transport.on("get_scan_defaults", () => ({
+      roots: ["C:\\Users\\bob"],
+      home: "C:\\Users\\bob",
+      minFileSize: 100_000_000,
+      platform: "windows",
+      applications: [],
+      disks: ["C:\\"],
+    }));
+    const { wrapper } = await mountWithPlugins(FilesView, {}, { path: "/files" });
+    await flushPromises();
+    const reveal = wrapper.find('[data-test="row-2"] [data-test="reveal"]');
+    expect(reveal.text()).toBe("Explorer");
+    expect(reveal.attributes("title")).toBe("Mostrar no Explorador de Arquivos");
+  });
+});
+
 describe("FilesView", () => {
   it("asks for a scan when there is no catalog", async () => {
     backend(null);

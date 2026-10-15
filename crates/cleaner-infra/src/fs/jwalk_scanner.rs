@@ -1,6 +1,5 @@
 //! Parallel, read-only directory walker built on `jwalk` (rayon under the hood).
 
-use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -9,7 +8,7 @@ use cleaner_core::error::ScanError;
 use cleaner_core::ports::filesystem::{FileSystemScanner, ScanOptions, ScanSink};
 use jwalk::{Parallelism, WalkDirGeneric};
 
-use super::metadata::{kind_of, to_scanned_entry};
+use super::metadata::{device, kind_of, to_scanned_entry};
 
 /// Walks each root in parallel. Directory reads happen on rayon threads; entries are delivered
 /// to the sink on the calling thread, so the sink needs no synchronisation.
@@ -64,7 +63,7 @@ impl JwalkScanner {
                 sink.on_inaccessible(root, "scan root is a symbolic link");
                 return;
             }
-            Ok(meta) => meta.dev(),
+            Ok(meta) => device(&meta),
             Err(e) => {
                 sink.on_inaccessible(root, &e.to_string());
                 return;
@@ -95,7 +94,7 @@ impl JwalkScanner {
                     // Never cross into another volume (mount points, external disks).
                     let same_device = entry
                         .metadata()
-                        .map(|m| m.dev() == root_device)
+                        .map(|m| device(&m) == root_device)
                         .unwrap_or(false);
                     if !same_device {
                         entry.read_children = None;

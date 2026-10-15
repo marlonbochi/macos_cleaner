@@ -7,6 +7,7 @@ import {
   parentPath,
   shortenPath,
 } from "@/composables/format";
+import { useSystemTerms } from "@/composables/platform";
 import type { AnalysisDto } from "@/types/generated/AnalysisDto";
 import type { FileEntryDto } from "@/types/generated/FileEntryDto";
 import RiskBadge from "./RiskBadge.vue";
@@ -42,6 +43,7 @@ defineEmits<{
   toggleAll: [ids: number[], value: boolean];
 }>();
 
+const terms = useSystemTerms();
 const selectableIds = computed(() => props.items.filter((i) => !i.isProtected).map((i) => i.id));
 const selectedOnPage = computed(
   () => selectableIds.value.filter((id) => props.selected.includes(id)).length,
@@ -162,10 +164,10 @@ const ICONS: Record<FileEntryDto["kind"], string> = {
           <button
             class="link"
             data-test="reveal"
-            :title="$t('common.revealInFinder')"
+            :title="$t('common.revealInFinder', terms)"
             @click="$emit('reveal', item.path)"
           >
-            {{ $t("files.reveal") }}
+            {{ terms.fileManagerButton }}
           </button>
         </td>
       </tr>

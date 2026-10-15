@@ -13,10 +13,10 @@ use std::time::{Duration, Instant};
 
 use crate::cancel::CancellationToken;
 use crate::domain::file_entry::{FileKind, FileRecord, ScannedEntry};
+use crate::domain::platform::Platform;
 use crate::domain::scan::{NewScan, Scan, ScanId, ScanStats};
 use crate::domain::size::ByteSize;
 use crate::error::{CoreError, RepoError};
-use crate::domain::platform::Platform;
 use crate::policy::protected_paths::{ProtectedPathPolicy, default_scan_exclusions};
 use crate::ports::Clock;
 use crate::ports::filesystem::{FileSystemScanner, ScanOptions, ScanSink};
@@ -695,6 +695,9 @@ mod tests {
     fn explicit_external_volume_is_not_excluded() {
         let excluded = exclusions_for(&[PathBuf::from("/Volumes/USB")], Platform::MacOs);
         assert!(!excluded.contains(&PathBuf::from("/Volumes")));
-        assert!(exclusions_for(&[PathBuf::from("/")], Platform::MacOs).contains(&PathBuf::from("/Volumes")));
+        assert!(
+            exclusions_for(&[PathBuf::from("/")], Platform::MacOs)
+                .contains(&PathBuf::from("/Volumes"))
+        );
     }
 }

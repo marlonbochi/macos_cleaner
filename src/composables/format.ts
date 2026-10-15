@@ -57,12 +57,22 @@ export function formatDateTime(
 export function shortenPath(path: string, home: string | null | undefined): string {
   if (!home) return path;
   if (path === home) return "~";
-  return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+  const separator = path.charAt(home.length);
+  return path.startsWith(home) && (separator === "/" || separator === "\\")
+    ? `~${path.slice(home.length)}`
+    : path;
 }
 
-/** Parent directory of an absolute POSIX path ("/" for top-level entries). */
+/** `C:\` style drive roots (Windows). */
+const DRIVE_ROOT = /^[A-Za-z]:[\\/]?$/;
+
+/** Parent directory of an absolute path, POSIX (`/`) or Windows (`C:\…`). The parent of a
+ * top-level entry is the root (`/` or the drive). */
 export function parentPath(path: string): string {
-  const trimmed = path.length > 1 ? path.replace(/\/+$/, "") : path;
-  const index = trimmed.lastIndexOf("/");
+  if (DRIVE_ROOT.test(path)) return path;
+  const windows = /^[A-Za-z]:[\\/]/.test(path);
+  const trimmed = path.length > 1 ? path.replace(/[\\/]+$/, "") : path;
+  const index = Math.max(trimmed.lastIndexOf("/"), windows ? trimmed.lastIndexOf("\\") : -1);
+  if (windows) return index <= 2 ? trimmed.slice(0, 2) + "\\" : trimmed.slice(0, index);
   return index <= 0 ? "/" : trimmed.slice(0, index);
 }

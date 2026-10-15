@@ -3,7 +3,6 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -53,7 +52,12 @@ fn scan(root: &Path, options: &ScanOptions) -> Collect {
 /// Canonical temp dir: on macOS `/var` is a symlink to `/private/var`, and roots must not be links.
 fn tempdir() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().canonicalize().unwrap();
+    // On Windows `canonicalize` returns `\\?\` paths, which do not accept `/` separators.
+    let root = if cfg!(windows) {
+        dir.path().to_path_buf()
+    } else {
+        dir.path().canonicalize().unwrap()
+    };
     (dir, root)
 }
 
@@ -76,7 +80,12 @@ fn reports_files_directories_and_packages_with_real_sizes() {
     assert!(report.modified_at.is_some());
     assert_eq!(out.entries[&root].kind, FileKind::Directory);
     assert_eq!(out.entries[&root.join("docs")].kind, FileKind::Directory);
-    assert_eq!(out.entries[&root.join("Tool.app")].kind, FileKind::Package);
+    let bundle_kind = if cfg!(target_os = "macos") {
+        FileKind::Package
+    } else {
+        FileKind::Directory
+    };
+    assert_eq!(out.entries[&root.join("Tool.app")].kind, bundle_kind);
     assert!(
         out.entries
             .contains_key(&root.join("Tool.app/Contents/MacOS/tool"))
@@ -84,6 +93,7 @@ fn reports_files_directories_and_packages_with_real_sizes() {
     assert!(out.inaccessible.is_empty());
 }
 
+#[cfg(unix)]
 #[test]
 fn symlinks_are_neither_reported_nor_followed() {
     let (_dir, root) = tempdir();
@@ -101,6 +111,7 @@ fn symlinks_are_neither_reported_nor_followed() {
     assert!(out.entries.keys().all(|p| p.starts_with(&root)));
 }
 
+#[cfg(unix)]
 #[test]
 fn hard_links_share_inode_and_report_link_count() {
     let (_dir, root) = tempdir();
@@ -117,8 +128,10 @@ fn hard_links_share_inode_and_report_link_count() {
     assert_eq!(a.hard_links, 2);
 }
 
+#[cfg(unix)]
 #[test]
 fn unreadable_directories_are_reported_and_scan_continues() {
+    use std::os::unix::fs::PermissionsExt;
     let (_dir, root) = tempdir();
     write_file(&root.join("locked/secret.bin"), 1_000);
     write_file(&root.join("open/visible.bin"), 1_000);
@@ -242,6 +255,7 @@ fn end_to_end_scan_into_sqlite() {
     assert!(scan.stats.files_seen >= 3);
 }
 
+#[cfg(unix)]
 fn is_root() -> bool {
     std::env::var("USER").is_ok_and(|u| u == "root")
 }

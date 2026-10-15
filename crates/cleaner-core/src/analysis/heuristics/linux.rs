@@ -35,7 +35,10 @@ pub(super) static RULES: &[Rule] = &[
                 cmd(
                     l,
                     "journalctl --disk-usage",
-                    ("Shows how much space the journal uses", "Mostra quanto espaço o journal ocupa"),
+                    (
+                        "Shows how much space the journal uses",
+                        "Mostra quanto espaço o journal ocupa",
+                    ),
                 ),
                 cmd(
                     l,
@@ -50,7 +53,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Safe,
                 RiskCategory::Log,
-                ("systemd journal (system logs).", "Journal do systemd (logs do sistema)."),
+                (
+                    "systemd journal (system logs).",
+                    "Journal do systemd (logs do sistema).",
+                ),
                 (
                     "Old logs are only useful for diagnosing past problems. Shrink them with journalctl instead of deleting files.",
                     "Logs antigos só servem para diagnosticar problemas passados. Reduza com journalctl em vez de apagar arquivos.",
@@ -227,8 +233,7 @@ pub(super) static RULES: &[Rule] = &[
     Rule {
         matches: |i| {
             i.kind != FileKind::File
-                && i
-                    .path
+                && i.path
                     .strip_prefix("/opt/")
                     .is_some_and(|rest| !rest.is_empty() && !rest.contains('/'))
         },
@@ -283,7 +288,10 @@ pub(super) static RULES: &[Rule] = &[
                 l,
                 RiskLevel::Safe,
                 RiskCategory::Installer,
-                ("Downloaded package or installer.", "Pacote ou instalador baixado."),
+                (
+                    "Downloaded package or installer.",
+                    "Pacote ou instalador baixado.",
+                ),
                 (
                     "Once the app is installed, the package can usually be downloaded again.",
                     "Depois que o app foi instalado, o pacote geralmente pode ser baixado de novo.",
