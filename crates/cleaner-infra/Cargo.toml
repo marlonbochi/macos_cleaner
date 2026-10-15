@@ -18,7 +18,8 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-trash = { version = "5.2.9", default-features = false }
+# Windows: the Recycle Bin is used from background threads, so COM runs multithreaded.
+trash = { version = "5.2.9", default-features = false, features = ["coinit_multithreaded"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3.7.0"
