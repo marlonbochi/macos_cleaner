@@ -73,6 +73,25 @@ impl AiSettingsService {
         Ok(())
     }
 
+    /// Moves API keys kept under a previous identity of the app (before it was renamed) into the
+    /// current store. A key already present in the current store wins. Returns how many keys
+    /// were imported; the legacy entries are deleted either way.
+    pub fn import_api_keys(&self, legacy: &dyn SecretStore) -> Result<usize, CoreError> {
+        let mut imported = 0;
+        for kind in AiProviderKind::ALL {
+            let key = kind.secret_key();
+            let Some(value) = legacy.get(&key)? else {
+                continue;
+            };
+            if self.secrets.get(&key)?.is_none() {
+                self.secrets.set(&key, &value)?;
+                imported += 1;
+            }
+            legacy.delete(&key)?;
+        }
+        Ok(imported)
+    }
+
     pub fn has_api_key(&self, provider: AiProviderKind) -> Result<bool, CoreError> {
         Ok(self.secrets.get(&provider.secret_key())?.is_some())
     }
@@ -129,8 +148,8 @@ impl AiSettingsService {
             "properties": { "ok": { "type": "boolean" } }
         });
         let reply = provider.complete_json(&StructuredRequest {
-            system: "Responda apenas com o JSON pedido.",
-            user: "Responda {\"ok\": true}.",
+            system: "Reply only with the requested JSON.",
+            user: "Reply with {\"ok\": true}.",
             schema: &schema,
             schema_name: "connection_test",
         })?;
@@ -195,6 +214,49 @@ mod tests {
         assert!(s.has_api_key(AiProviderKind::Anthropic).unwrap());
         s.save(&claude(), ApiKeyChange::Clear).unwrap();
         assert!(!s.has_api_key(AiProviderKind::Anthropic).unwrap());
+    }
+
+    #[test]
+    fn imports_keys_from_the_previous_identity_once() {
+        let (s, secrets) = service(FakeAiFactory::replying(json!({})));
+        let legacy = InMemorySecretStore::default();
+        legacy
+            .set(&AiProviderKind::Anthropic.secret_key(), "sk-old")
+            .unwrap();
+        legacy
+            .set(&AiProviderKind::OpenAi.secret_key(), "sk-old-openai")
+            .unwrap();
+        secrets
+            .set(&AiProviderKind::OpenAi.secret_key(), "sk-new-openai")
+            .unwrap();
+
+        assert_eq!(s.import_api_keys(&legacy).unwrap(), 1);
+        assert_eq!(
+            secrets
+                .get(&AiProviderKind::Anthropic.secret_key())
+                .unwrap()
+                .as_deref(),
+            Some("sk-old")
+        );
+        assert_eq!(
+            secrets
+                .get(&AiProviderKind::OpenAi.secret_key())
+                .unwrap()
+                .as_deref(),
+            Some("sk-new-openai"),
+            "the current key wins"
+        );
+        assert!(
+            legacy
+                .get(&AiProviderKind::Anthropic.secret_key())
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            s.import_api_keys(&legacy).unwrap(),
+            0,
+            "nothing left to import"
+        );
     }
 
     #[test]

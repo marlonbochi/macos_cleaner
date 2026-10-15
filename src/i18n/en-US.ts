@@ -1,6 +1,6 @@
 export default {
   app: {
-    name: "macOS Cleaner",
+    name: "Disk Cleaner",
   },
   nav: {
     scan: "Scan",
@@ -29,8 +29,8 @@ export default {
     step3: "Quit and reopen {name}: macOS only applies the permission after the app restarts.",
     step3Dev: "Quit {name} completely (⌘Q), open it again and run “npm run tauri dev” again.",
     devNote:
-      "Development mode: macOS grants the permission to the app that started the process ({name}), not to macOS Cleaner.",
-    unknownTarget: "macOS Cleaner",
+      "Development mode: macOS grants the permission to the app that started the process ({name}), not to Disk Cleaner.",
+    unknownTarget: "Disk Cleaner",
   },
   scan: {
     title: "Scan",
@@ -133,7 +133,7 @@ export default {
     steps: "How to do it",
     commands: "Suggested commands",
     commandsNote:
-      "macOS Cleaner never runs commands. Review them and run them in Terminal if they make sense.",
+      "Disk Cleaner never runs commands. Review them and run them in Terminal if they make sense.",
     copy: "Copy",
     copied: "Copied!",
     aiFailed: "The AI did not answer ({message}). Showing the local rules' analysis.",
@@ -194,11 +194,11 @@ export default {
       "Only metadata: the path (with ~ instead of your home folder), kind, size, dates and the names of a folder's largest children. File contents are never sent.",
   },
   uninstall: {
-    title: "Uninstall macOS Cleaner",
+    title: "Uninstall Disk Cleaner",
     description:
       "Removes the app completely: the catalogue database, caches, settings, API keys in the Keychain and the app itself. Files go to the Trash.",
     open: "Uninstall…",
-    dialogTitle: "Uninstall macOS Cleaner?",
+    dialogTitle: "Uninstall Disk Cleaner?",
     warning:
       "Everything below goes to the Trash and the API keys are deleted from the Keychain. The app quits when it is done.",
     keys: "API keys (Keychain)",
@@ -209,7 +209,7 @@ export default {
     confirm: "Uninstall",
     running: "Uninstalling…",
     result: "{count} item(s) moved to the Trash and {keys} key(s) removed.",
-    quitting: "macOS Cleaner will quit now. Empty the Trash to free the space.",
+    quitting: "Disk Cleaner will quit now. Empty the Trash to free the space.",
     kind: {
       appData: "Data (catalogue)",
       webData: "Web view data",
@@ -219,6 +219,7 @@ export default {
       savedState: "Window state",
       httpStorage: "Network storage",
       appBundle: "The app",
+      legacy: "Previous version (macOS Cleaner)",
     },
   },
   errors: {

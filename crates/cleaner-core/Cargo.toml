@@ -1,6 +1,6 @@
 [package]
 name = "cleaner-core"
-description = "Domain model, use cases and ports for macOS Cleaner (no I/O)"
+description = "Domain model, use cases and ports for Disk Cleaner (no I/O)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

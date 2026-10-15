@@ -21,6 +21,8 @@ pub enum FootprintKind {
     HttpStorage,
     /// The `.app` bundle itself; always removed last.
     AppBundle,
+    /// Data or app left by a previous identity of the app (it was called macOS Cleaner).
+    Legacy,
 }
 
 /// A place where the app may leave data.
@@ -47,15 +49,16 @@ impl FootprintLocation {
             .file_name()
             .and_then(|n| n.to_str())
             .ok_or_else(|| invalid("no file name"))?;
+        let is_app = Path::new(name).extension().is_some_and(|e| e == "app");
+        let named_after_app = !bundle_id.trim().is_empty()
+            && (name == bundle_id
+                || name
+                    .strip_prefix(bundle_id)
+                    .is_some_and(|rest| rest.starts_with('.')));
         let allowed = match kind {
-            FootprintKind::AppBundle => Path::new(name).extension().is_some_and(|e| e == "app"),
-            _ => {
-                !bundle_id.trim().is_empty()
-                    && (name == bundle_id
-                        || name
-                            .strip_prefix(bundle_id)
-                            .is_some_and(|rest| rest.starts_with('.')))
-            }
+            FootprintKind::AppBundle => is_app,
+            FootprintKind::Legacy => is_app || named_after_app,
+            _ => named_after_app,
         };
         if !allowed {
             return Err(invalid("not named after the app"));
@@ -110,6 +113,11 @@ mod tests {
                 "/Users/a/Library/Saved Application State/com.example.cleaner.savedState",
             ),
             (FootprintKind::AppBundle, "/Applications/Cleaner.app"),
+            (FootprintKind::Legacy, "/Applications/Old Cleaner.app"),
+            (
+                FootprintKind::Legacy,
+                "/Users/a/Library/Caches/com.example.cleaner",
+            ),
         ] {
             assert!(location(kind, path).is_ok(), "{path}");
         }
@@ -131,6 +139,7 @@ mod tests {
             (FootprintKind::AppBundle, "/Applications"),
             (FootprintKind::AppBundle, "/Users/a/Documents/report.pdf"),
             (FootprintKind::AppData, "/"),
+            (FootprintKind::Legacy, "/Users/a/Library/Caches"),
         ] {
             assert!(location(kind, path).is_err(), "{path}");
         }

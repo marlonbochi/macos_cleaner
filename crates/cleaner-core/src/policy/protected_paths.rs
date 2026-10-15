@@ -142,7 +142,7 @@ mod tests {
     fn policy() -> ProtectedPathPolicy {
         ProtectedPathPolicy::macos_default(
             Path::new("/Users/alice"),
-            Path::new("/Users/alice/Library/Application Support/com.marlonbochi.macoscleaner"),
+            Path::new("/Users/alice/Library/Application Support/com.marlonbochi.diskcleaner"),
         )
     }
 
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn app_own_data_is_protected() {
         assert!(policy().is_protected(Path::new(
-            "/Users/alice/Library/Application Support/com.marlonbochi.macoscleaner/catalog.sqlite3"
+            "/Users/alice/Library/Application Support/com.marlonbochi.diskcleaner/catalog.sqlite3"
         )));
     }
 

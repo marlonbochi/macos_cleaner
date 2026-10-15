@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "macOS Cleaner",
+  "productName": "Disk Cleaner",
   "version": "0.1.1",
-  "identifier": "com.marlonbochi.macoscleaner",
+  "identifier": "com.marlonbochi.diskcleaner",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "macOS Cleaner",
+        "title": "Disk Cleaner",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

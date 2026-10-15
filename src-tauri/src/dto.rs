@@ -653,6 +653,7 @@ pub enum FootprintKindDto {
     SavedState,
     HttpStorage,
     AppBundle,
+    Legacy,
 }
 
 impl From<FootprintKind> for FootprintKindDto {
@@ -666,6 +667,7 @@ impl From<FootprintKind> for FootprintKindDto {
             FootprintKind::SavedState => Self::SavedState,
             FootprintKind::HttpStorage => Self::HttpStorage,
             FootprintKind::AppBundle => Self::AppBundle,
+            FootprintKind::Legacy => Self::Legacy,
         }
     }
 }

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    macos_cleaner_lib::run();
+    disk_cleaner_lib::run();
 }

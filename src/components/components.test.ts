@@ -152,21 +152,21 @@ describe("PermissionBanner", () => {
     await recheck?.trigger("click");
     expect(wrapper.emitted("open")).toHaveLength(1);
     expect(wrapper.emitted("recheck")).toHaveLength(1);
-    expect(wrapper.find('[data-test="steps"]').text()).toContain("Ative o macOS Cleaner na lista");
+    expect(wrapper.find('[data-test="steps"]').text()).toContain("Ative o Disk Cleaner na lista");
     expect(wrapper.find('[data-test="reveal-target"]').exists()).toBe(false);
   });
 
   it("names the bundled app and reveals it in Finder", async () => {
     const target = {
-      name: "macOS Cleaner",
-      appPath: "/Applications/macOS Cleaner.app",
+      name: "Disk Cleaner",
+      appPath: "/Applications/Disk Cleaner.app",
       isDevHost: false,
     };
     const { wrapper } = await mountWithPlugins(PermissionBanner, { props: { target } });
     expect(wrapper.find('[data-test="dev-note"]').exists()).toBe(false);
-    expect(wrapper.find('[data-test="steps"]').text()).toContain("Feche e abra macOS Cleaner");
+    expect(wrapper.find('[data-test="steps"]').text()).toContain("Feche e abra Disk Cleaner");
     await wrapper.find('[data-test="reveal-target"]').trigger("click");
-    expect(wrapper.emitted("reveal")).toEqual([["/Applications/macOS Cleaner.app"]]);
+    expect(wrapper.emitted("reveal")).toEqual([["/Applications/Disk Cleaner.app"]]);
   });
 
   it("explains that the launching terminal needs access in dev mode", async () => {

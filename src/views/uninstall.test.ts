@@ -11,18 +11,18 @@ const footprint = (bundleFound = true): AppFootprintDto => ({
   items: [
     {
       kind: "appData",
-      path: "/Users/alice/Library/Application Support/com.marlonbochi.macoscleaner",
+      path: "/Users/alice/Library/Application Support/com.marlonbochi.diskcleaner",
       size: 7_600_000,
     },
     {
       kind: "appBundle",
-      path: "/Applications/macOS Cleaner.app",
+      path: "/Applications/Disk Cleaner.app",
       size: 10_000_000,
     },
   ],
   storedKeys: ["anthropic"],
   bundleFound,
-  confirmationPhrase: "macOS Cleaner",
+  confirmationPhrase: "Disk Cleaner",
 });
 
 function backend(found = footprint()) {
@@ -62,7 +62,7 @@ describe("Uninstall", () => {
 
     const items = wrapper.find('[data-test="uninstall-items"]').text();
     expect(items).toContain("Dados (catálogo)");
-    expect(items).toContain("~/Library/Application Support/com.marlonbochi.macoscleaner");
+    expect(items).toContain("~/Library/Application Support/com.marlonbochi.diskcleaner");
     expect(items).toContain("O app");
     expect(wrapper.find('[data-test="uninstall-keys"]').text()).toContain("anthropic");
     expect(wrapper.text()).toContain("Total: 17,6 MB");
@@ -76,7 +76,7 @@ describe("Uninstall", () => {
     const input = wrapper.find("#uninstall-confirm");
 
     expect(confirm.attributes("disabled")).toBeDefined();
-    for (const wrong of ["macos cleaner", "macOS", "sim"]) {
+    for (const wrong of ["disk cleaner", "macOS", "sim"]) {
       await input.setValue(wrong);
       expect(confirm.attributes("disabled")).toBeDefined();
     }
@@ -84,12 +84,12 @@ describe("Uninstall", () => {
     await flushPromises();
     expect(transport.lastCall("uninstall_app")).toBeUndefined();
 
-    await input.setValue("macOS Cleaner");
+    await input.setValue("Disk Cleaner");
     expect(confirm.attributes("disabled")).toBeUndefined();
     await wrapper.find("form").trigger("submit");
     await flushPromises();
 
-    expect(transport.lastCall("uninstall_app")).toEqual({ confirmation: "macOS Cleaner" });
+    expect(transport.lastCall("uninstall_app")).toEqual({ confirmation: "Disk Cleaner" });
     expect(wrapper.find('[data-test="uninstall-result"]').text()).toContain(
       "2 item(ns) movido(s) para o Lixo e 1 chave(s) removida(s).",
     );
@@ -111,7 +111,7 @@ describe("Uninstall", () => {
       throw { code: "INVALID_INPUT", message: "type the phrase" };
     });
     const { wrapper } = await openDialog();
-    await wrapper.find("#uninstall-confirm").setValue("macOS Cleaner");
+    await wrapper.find("#uninstall-confirm").setValue("Disk Cleaner");
     await wrapper.find("form").trigger("submit");
     await flushPromises();
     expect(wrapper.find('[role="alert"]').text()).toContain("type the phrase");

@@ -1,6 +1,6 @@
 [package]
-name = "macos-cleaner"
-description = "macOS Cleaner desktop app (Tauri composition root and IPC commands)"
+name = "disk-cleaner"
+description = "Disk Cleaner desktop app (Tauri composition root and IPC commands)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [lib]
 # The `_lib` suffix avoids a name clash between the lib and bin targets.
-name = "macos_cleaner_lib"
+name = "disk_cleaner_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

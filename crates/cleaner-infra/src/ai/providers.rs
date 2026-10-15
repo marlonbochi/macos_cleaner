@@ -160,7 +160,7 @@ impl AiProvider for Gemini {
         // Gemini's schema dialect differs from JSON Schema, so the schema goes in the
         // instructions and the answer is validated client-side like every other provider.
         let system = format!(
-            "{}\n\nResponda SOMENTE com JSON válido que siga este JSON Schema:\n{}",
+            "{}\n\nReply ONLY with valid JSON that follows this JSON Schema:\n{}",
             request.system, request.schema
         );
         let body = json!({

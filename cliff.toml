@@ -5,7 +5,7 @@
 header = """
 # Changelog
 
-All notable changes to macOS Cleaner. Generated from the commit history by
+All notable changes to Disk Cleaner. Generated from the commit history by
 [git-cliff](https://git-cliff.org); each version is also published as a
 [GitHub Release](https://github.com/marlonbochi/macos_cleaner/releases) with the app attached.
 """

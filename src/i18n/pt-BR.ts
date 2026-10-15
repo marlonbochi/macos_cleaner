@@ -2,7 +2,7 @@ import type { MessageSchema } from "./index";
 
 const ptBR: MessageSchema = {
   app: {
-    name: "macOS Cleaner",
+    name: "Disk Cleaner",
   },
   nav: {
     scan: "Varredura",
@@ -31,8 +31,8 @@ const ptBR: MessageSchema = {
     step3: "Feche e abra {name} novamente: o macOS só aplica a permissão após reiniciar o app.",
     step3Dev: "Feche {name} por completo (⌘Q), abra de novo e rode “npm run tauri dev” outra vez.",
     devNote:
-      "Modo desenvolvimento: o macOS concede a permissão ao app que iniciou o processo ({name}), e não ao macOS Cleaner.",
-    unknownTarget: "o macOS Cleaner",
+      "Modo desenvolvimento: o macOS concede a permissão ao app que iniciou o processo ({name}), e não ao Disk Cleaner.",
+    unknownTarget: "o Disk Cleaner",
   },
   scan: {
     title: "Varredura",
@@ -136,7 +136,7 @@ const ptBR: MessageSchema = {
     steps: "Como fazer",
     commands: "Comandos sugeridos",
     commandsNote:
-      "O macOS Cleaner nunca executa comandos. Revise e rode no Terminal se fizer sentido.",
+      "O Disk Cleaner nunca executa comandos. Revise e rode no Terminal se fizer sentido.",
     copy: "Copiar",
     copied: "Copiado!",
     aiFailed: "A IA não respondeu ({message}). Mostrando a análise das regras locais.",
@@ -198,11 +198,11 @@ const ptBR: MessageSchema = {
       "Somente metadados: caminho (com ~ no lugar da sua pasta pessoal), tipo, tamanho, datas e os nomes dos maiores subitens de pastas. O conteúdo dos arquivos nunca é enviado.",
   },
   uninstall: {
-    title: "Desinstalar o macOS Cleaner",
+    title: "Desinstalar o Disk Cleaner",
     description:
       "Remove o app por completo: o banco do catálogo, caches, configurações, chaves de API no Keychain e o próprio app. Os arquivos vão para o Lixo.",
     open: "Desinstalar…",
-    dialogTitle: "Desinstalar o macOS Cleaner?",
+    dialogTitle: "Desinstalar o Disk Cleaner?",
     warning:
       "Tudo abaixo vai para o Lixo e as chaves de API são apagadas do Keychain. O app fecha ao terminar.",
     keys: "Chaves de API (Keychain)",
@@ -213,7 +213,7 @@ const ptBR: MessageSchema = {
     confirm: "Desinstalar",
     running: "Desinstalando…",
     result: "{count} item(ns) movido(s) para o Lixo e {keys} chave(s) removida(s).",
-    quitting: "O macOS Cleaner vai fechar agora. Esvazie o Lixo para liberar o espaço.",
+    quitting: "O Disk Cleaner vai fechar agora. Esvazie o Lixo para liberar o espaço.",
     kind: {
       appData: "Dados (catálogo)",
       webData: "Dados da interface web",
@@ -223,6 +223,7 @@ const ptBR: MessageSchema = {
       savedState: "Estado das janelas",
       httpStorage: "Armazenamento de rede",
       appBundle: "O app",
+      legacy: "Versão anterior (macOS Cleaner)",
     },
   },
   errors: {

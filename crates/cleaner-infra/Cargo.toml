@@ -1,6 +1,6 @@
 [package]
 name = "cleaner-infra"
-description = "Adapters (filesystem, SQLite, AI providers, macOS) for macOS Cleaner"
+description = "Adapters (filesystem, SQLite, AI providers, macOS) for Disk Cleaner"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
