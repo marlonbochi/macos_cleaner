@@ -136,8 +136,26 @@ scripts/make-fixture-tree.sh /tmp/mc-fixture
 
 - `ci.yml` — on every push/PR: fmt, clippy, tests with coverage (Rust ≥ 80%, frontend ≥ 70%),
   ESLint, Prettier, vue-tsc, generated-types drift check and an unsigned `.dmg` build.
-- `release.yml` — `v*` tags create a draft release with a universal `.dmg`.
+- `release.yml` — on a `v*` tag: runs every CI gate, checks the tag matches the app version, builds
+  a universal (Apple Silicon + Intel) `.dmg` on GitHub and publishes a GitHub Release with notes
+  generated from the commits.
 - `audit.yml` — weekly dependency audit; Dependabot keeps dependencies current.
+
+## Releases
+
+Download the app from [Releases](https://github.com/marlonbochi/macos_cleaner/releases); every
+version lists what changed ([CHANGELOG.md](CHANGELOG.md) has the full history). To cut a release
+from an up-to-date `main`:
+
+```bash
+npm run release -- 0.2.0 --dry-run   # preview the release notes
+npm run release -- 0.2.0             # bump versions, update CHANGELOG.md, commit and tag
+git push origin main v0.2.0          # GitHub builds the app and publishes the release
+```
+
+Versions follow [SemVer](https://semver.org) and the notes come from
+[Conventional Commits](https://www.conventionalcommits.org) through [git-cliff](https://git-cliff.org)
+(`cliff.toml`).
 
 ## Uninstalling
 

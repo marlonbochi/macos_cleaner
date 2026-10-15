@@ -4,6 +4,8 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  # Also run as the gate of the release workflow.
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}

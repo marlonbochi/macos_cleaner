@@ -37,7 +37,7 @@
       "icons/icon.icns"
     ],
     "category": "public.app-category.utilities",
-    "shortDescription": "Encontre e libere espa\u00e7o em disco com seguran\u00e7a",
+    "shortDescription": "Find and safely free up disk space",
     "macOS": {
       "minimumSystemVersion": "13.0"
     }
