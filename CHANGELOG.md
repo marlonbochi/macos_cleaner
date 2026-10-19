@@ -4,6 +4,12 @@ All notable changes to Disk Cleaner. Generated from the commit history by
 [git-cliff](https://git-cliff.org); each version is also published as a
 [GitHub Release](https://github.com/marlonbochi/macos_cleaner/releases) with the app attached.
 
+## [0.2.1](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.2.1) — 2026-10-19
+
+### Bug fixes
+
+- **deps:** Update quick-xml, time and inout to clear security advisories ([d383b6f](https://github.com/marlonbochi/macos_cleaner/commit/d383b6f1b5645da43f49e53df34113c7860ac79a))
+
 ## [0.2.0](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.2.0) — 2026-10-15
 
 ### Features
