@@ -1,16 +1,24 @@
 name: Security audit
 
+# Known vulnerabilities in dependencies (RustSec and npm advisories). Runs weekly, because new
+# advisories appear without any change here, and whenever a lockfile changes.
 on:
   schedule:
     - cron: "0 6 * * 1"
+  push:
+    paths:
+      - Cargo.lock
+      - package-lock.json
+      - .github/workflows/audit.yml
   workflow_dispatch:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@cargo-audit
+      # Vulnerabilities fail the job; "unmaintained"/"unsound" notices are reported as warnings.
       - run: cargo audit
       - uses: actions/setup-node@v7
         with:
