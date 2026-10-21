@@ -54,6 +54,8 @@ export const useAiSettingsStore = defineStore("aiSettings", () => {
       providerInfo.value.hasApiKey ||
       form.value.apiKey.trim() !== "",
   );
+  /** `false` when the system has no keyring, so API keys cannot be saved. */
+  const canStoreKeys = computed(() => saved.value?.secretStoreAvailable ?? true);
   const sourceKey = computed(() => `${form.value.provider}|${form.value.baseUrl.trim()}`);
   /** The list on screen matches the current provider and URL. */
   const modelsCurrent = computed(() => modelsSource.value === sourceKey.value);
@@ -206,6 +208,7 @@ export const useAiSettingsStore = defineStore("aiSettings", () => {
     modelValid,
     savedModelMissing,
     hasKey,
+    canStoreKeys,
     canSave,
     saving,
     testing,

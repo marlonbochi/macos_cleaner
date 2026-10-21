@@ -87,6 +87,7 @@ pub fn get_ai_settings(state: State<'_, AppState>) -> CommandResult<AiSettingsDt
         model: settings.model,
         base_url: settings.base_url,
         providers,
+        secret_store_available: state.ai_settings.can_store_api_keys(),
     })
 }
 

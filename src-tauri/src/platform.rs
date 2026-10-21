@@ -7,7 +7,7 @@ use std::sync::Arc;
 use cleaner_core::domain::footprint::{AppRemoval, FootprintKind, FootprintLocation};
 use cleaner_core::domain::platform::Platform;
 use cleaner_core::policy::protected_paths::ProtectedPathPolicy;
-use cleaner_core::ports::ai::{SecretError, SecretStore};
+use cleaner_core::ports::ai::SecretStore;
 use cleaner_core::services::ai_settings_service::AiSettingsService;
 
 /// The app's own folders, as resolved by Tauri for the current system.
@@ -40,34 +40,14 @@ pub fn system_drive() -> PathBuf {
 }
 
 /// The system's secret store. When it is unavailable (e.g. no keyring daemon on a minimal Linux
-/// desktop) the app keeps working without AI keys and says why when the user tries to save one.
+/// desktop) the app keeps working without AI keys and Settings tells the user how to install one.
 pub fn secret_store(service: &str) -> Arc<dyn SecretStore> {
     match cleaner_infra::secrets::system_secret_store(service) {
         Ok(store) => store,
         Err(e) => {
             tracing::warn!(error = %e, "secret store unavailable");
-            Arc::new(UnavailableSecretStore(e.0))
+            Arc::new(cleaner_infra::secrets::UnavailableSecretStore::new(e.0))
         }
-    }
-}
-
-#[derive(Debug)]
-struct UnavailableSecretStore(String);
-
-impl SecretStore for UnavailableSecretStore {
-    fn get(&self, _key: &str) -> Result<Option<String>, SecretError> {
-        Ok(None)
-    }
-
-    fn set(&self, _key: &str, _value: &str) -> Result<(), SecretError> {
-        Err(SecretError(format!(
-            "no secret store available: {}",
-            self.0
-        )))
-    }
-
-    fn delete(&self, _key: &str) -> Result<(), SecretError> {
-        Ok(())
     }
 }
 

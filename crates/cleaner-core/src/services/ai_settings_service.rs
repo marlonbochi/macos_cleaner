@@ -92,6 +92,11 @@ impl AiSettingsService {
         Ok(imported)
     }
 
+    /// Whether the system has a secret store, i.e. whether API keys can be saved at all.
+    pub fn can_store_api_keys(&self) -> bool {
+        self.secrets.is_available()
+    }
+
     pub fn has_api_key(&self, provider: AiProviderKind) -> Result<bool, CoreError> {
         Ok(self.secrets.get(&provider.secret_key())?.is_some())
     }
@@ -163,6 +168,7 @@ impl AiSettingsService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ports::ai::SecretError;
     use crate::testing::{FakeAiFactory, InMemorySecretStore, InMemorySettingsRepository};
 
     fn service(factory: FakeAiFactory) -> (AiSettingsService, Arc<InMemorySecretStore>) {
@@ -181,6 +187,36 @@ mod tests {
             model: None,
             base_url: None,
         }
+    }
+
+    #[test]
+    fn says_whether_api_keys_can_be_stored() {
+        #[derive(Debug)]
+        struct NoStore;
+        impl SecretStore for NoStore {
+            fn get(&self, _: &str) -> Result<Option<String>, SecretError> {
+                Ok(None)
+            }
+            fn set(&self, _: &str, _: &str) -> Result<(), SecretError> {
+                Err(SecretError("no keyring".into()))
+            }
+            fn delete(&self, _: &str) -> Result<(), SecretError> {
+                Ok(())
+            }
+            fn is_available(&self) -> bool {
+                false
+            }
+        }
+
+        let (s, _) = service(FakeAiFactory::replying(json!({})));
+        assert!(s.can_store_api_keys());
+
+        let without = AiSettingsService::new(
+            Arc::new(InMemorySettingsRepository::default()),
+            Arc::new(NoStore),
+            Arc::new(FakeAiFactory::replying(json!({}))),
+        );
+        assert!(!without.can_store_api_keys());
     }
 
     #[test]

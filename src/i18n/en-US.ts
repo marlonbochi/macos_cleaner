@@ -190,6 +190,14 @@ export default {
     saved: "Settings saved.",
     keyRemoved: "Key removed {fromKeychain}.",
     connected: "Connection ok: {provider} · {model}",
+    noKeyring: {
+      title: "API keys cannot be saved on this system",
+      body: "Disk Cleaner keeps API keys only {inKeychain}, never in its own files, and this system has no {keychainName} available.",
+      linuxHow:
+        "Install GNOME Keyring (or KWallet on KDE), sign out and back in, then reopen Disk Cleaner:",
+      ollama: "Ollama runs locally and needs no key, so it works without a keyring.",
+      placeholder: "No system keyring to keep the key",
+    },
     privacyTitle: "What is sent to the AI",
     privacy:
       "Only metadata: the path (with ~ instead of your home folder), kind, size, dates and the names of a folder's largest children. File contents are never sent.",
