@@ -5,4 +5,8 @@ import type { AiProviderInfoDto } from "./AiProviderInfoDto";
 /**
  * Current settings. The API key itself is never sent to the frontend.
  */
-export type AiSettingsDto = { provider: AiProviderIdDto | null, model: string | null, baseUrl: string | null, providers: Array<AiProviderInfoDto>, };
+export type AiSettingsDto = { provider: AiProviderIdDto | null, model: string | null, baseUrl: string | null, providers: Array<AiProviderInfoDto>, 
+/**
+ * `false` when the system has no keyring, so API keys cannot be saved.
+ */
+secretStoreAvailable: boolean, };

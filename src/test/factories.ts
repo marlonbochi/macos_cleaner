@@ -86,6 +86,7 @@ export function aiSettings(overrides: Partial<AiSettingsDto> = {}): AiSettingsDt
       provider("gemini", "Gemini (Google)", "gemini-3.8-flash"),
       provider("ollama", "Ollama (local)", "llama3.2", false),
     ],
+    secretStoreAvailable: true,
     ...overrides,
   };
 }

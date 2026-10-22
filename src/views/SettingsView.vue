@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import UninstallDialog from "@/components/UninstallDialog.vue";
-import { useSystemTerms } from "@/composables/platform";
+import { usePlatform, useSystemTerms } from "@/composables/platform";
 import { LOCALE_NAMES, SUPPORTED_LOCALES, isAppLocale } from "@/i18n";
 import { useAiSettingsStore } from "@/stores/aiSettings";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -15,8 +15,13 @@ const scan = useScanStore();
 const uninstall = useUninstallStore();
 const uninstallOpen = ref(false);
 const terms = useSystemTerms();
+const platform = usePlatform();
 
-onMounted(() => void ai.load());
+onMounted(async () => {
+  await ai.load();
+  // The keyring warning names the system's own tools, so it needs to know the platform.
+  if (!ai.canStoreKeys && !scan.defaults) await scan.init();
+});
 
 const isOllama = computed(() => ai.form.provider === "ollama");
 const showUrl = computed(() => isOllama.value || ai.form.customUrl);
@@ -82,6 +87,16 @@ function closeUninstall(): void {
       <h2>{{ $t("settings.aiTitle") }}</h2>
       <p class="muted">{{ $t("settings.aiSubtitle") }}</p>
 
+      <div v-if="!ai.canStoreKeys" class="notice" role="alert" data-test="no-keyring">
+        <strong>{{ $t("settings.noKeyring.title") }}</strong>
+        <p>{{ $t("settings.noKeyring.body", terms) }}</p>
+        <p v-if="platform === 'linux'">
+          {{ $t("settings.noKeyring.linuxHow") }}
+          <code>sudo apt install gnome-keyring</code>
+        </p>
+        <p>{{ $t("settings.noKeyring.ollama") }}</p>
+      </div>
+
       <div class="field">
         <label for="provider">{{ $t("settings.provider") }}</label>
         <select id="provider" :value="ai.form.provider ?? ''" @change="onProviderChange">
@@ -102,10 +117,13 @@ function closeUninstall(): void {
               type="password"
               autocomplete="off"
               spellcheck="false"
+              :disabled="!ai.canStoreKeys"
               :placeholder="
-                ai.providerInfo.hasApiKey
-                  ? $t('settings.apiKeyPlaceholderSaved', terms)
-                  : $t('settings.apiKeyPlaceholder')
+                !ai.canStoreKeys
+                  ? $t('settings.noKeyring.placeholder')
+                  : ai.providerInfo.hasApiKey
+                    ? $t('settings.apiKeyPlaceholderSaved', terms)
+                    : $t('settings.apiKeyPlaceholder')
               "
             />
             <button
@@ -291,5 +309,18 @@ label.check {
 
 .warning-text {
   color: var(--warning);
+}
+
+.notice {
+  max-width: 620px;
+  margin: 0.9rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.notice p {
+  margin: 0.4rem 0 0;
 }
 </style>

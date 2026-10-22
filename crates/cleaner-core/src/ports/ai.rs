@@ -67,9 +67,16 @@ pub trait AiProviderFactory: Send + Sync {
 #[error("secret store error: {0}")]
 pub struct SecretError(pub String);
 
-/// OS-backed secret storage (Keychain on macOS). Secrets never go to SQLite.
+/// OS-backed secret storage (Keychain, Credential Manager, Secret Service). Secrets never go to
+/// SQLite.
 pub trait SecretStore: Send + Sync {
     fn get(&self, key: &str) -> Result<Option<String>, SecretError>;
     fn set(&self, key: &str, value: &str) -> Result<(), SecretError>;
     fn delete(&self, key: &str) -> Result<(), SecretError>;
+
+    /// `false` when the system has no secret store (e.g. a Linux desktop without a keyring), so
+    /// nothing can be saved and the user must be told why.
+    fn is_available(&self) -> bool {
+        true
+    }
 }

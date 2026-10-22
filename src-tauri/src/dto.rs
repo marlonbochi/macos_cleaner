@@ -604,6 +604,8 @@ pub struct AiSettingsDto {
     pub model: Option<String>,
     pub base_url: Option<String>,
     pub providers: Vec<AiProviderInfoDto>,
+    /// `false` when the system has no keyring, so API keys cannot be saved.
+    pub secret_store_available: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, TS)]

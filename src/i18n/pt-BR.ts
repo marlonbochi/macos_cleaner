@@ -194,6 +194,14 @@ const ptBR: MessageSchema = {
     saved: "Configurações salvas.",
     keyRemoved: "Chave removida {fromKeychain}.",
     connected: "Conexão ok: {provider} · {model}",
+    noKeyring: {
+      title: "Não é possível salvar API keys neste sistema",
+      body: "O Disk Cleaner guarda API keys apenas {inKeychain}, nunca nos próprios arquivos, e este sistema não tem um {keychainName} disponível.",
+      linuxHow:
+        "Instale o GNOME Keyring (ou o KWallet no KDE), saia e entre de novo na sessão e reabra o Disk Cleaner:",
+      ollama: "O Ollama roda localmente e não precisa de chave, então funciona sem chaveiro.",
+      placeholder: "Sem chaveiro do sistema para guardar a chave",
+    },
     privacyTitle: "O que é enviado à IA",
     privacy:
       "Somente metadados: caminho (com ~ no lugar da sua pasta pessoal), tipo, tamanho, datas e os nomes dos maiores subitens de pastas. O conteúdo dos arquivos nunca é enviado.",

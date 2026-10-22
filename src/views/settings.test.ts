@@ -3,6 +3,7 @@ import { flushPromises } from "@vue/test-utils";
 import { provideApi } from "@/services/ipc";
 import { aiSettings } from "@/test/factories";
 import { FakeTransport } from "@/test/fakeTransport";
+import type { PlatformDto } from "@/types/generated/PlatformDto";
 import { mountWithPlugins } from "@/test/mount";
 import SettingsView from "./SettingsView.vue";
 
@@ -134,5 +135,57 @@ describe("SettingsView", () => {
     expect(wrapper.find("h1").text()).toBe("Settings");
     expect(wrapper.text()).toContain("Artificial intelligence");
     expect(transport.lastCall("set_locale")).toEqual({ locale: "en-US" });
+  });
+
+  describe("without a keyring", () => {
+    function noKeyring(platform: PlatformDto) {
+      return backend(aiSettings({ secretStoreAvailable: false }))
+        .on("get_scan_defaults", () => ({
+          roots: ["/home/alice"],
+          home: "/home/alice",
+          minFileSize: 100_000_000,
+          platform,
+          applications: [],
+          disks: ["/"],
+        }))
+        .on("get_latest_scan", () => null)
+        .on("get_permissions_status", () => ({ fullDiskAccess: true }));
+    }
+
+    it("explains on Linux how to install one and that Ollama still works", async () => {
+      noKeyring("linux");
+      const { wrapper } = await mountWithPlugins(SettingsView, {}, { path: "/settings" });
+      await flushPromises();
+
+      const notice = wrapper.find('[data-test="no-keyring"]');
+      expect(notice.exists()).toBe(true);
+      expect(notice.text()).toContain("sudo apt install gnome-keyring");
+      expect(notice.text()).toContain("KWallet");
+      expect(notice.text()).toContain("Ollama");
+
+      await wrapper.find("#provider").setValue("anthropic");
+      await flushPromises();
+      const key = wrapper.find("#api-key");
+      expect(key.attributes("disabled")).toBeDefined();
+      expect(key.attributes("placeholder")).toBe("Sem chaveiro do sistema para guardar a chave");
+    });
+
+    it("uses the system's terms elsewhere", async () => {
+      noKeyring("windows");
+      const { wrapper } = await mountWithPlugins(SettingsView, {}, { path: "/settings" });
+      await flushPromises();
+      const notice = wrapper.find('[data-test="no-keyring"]').text();
+      expect(notice).toContain("Gerenciador de Credenciais");
+      expect(notice).not.toContain("apt install");
+    });
+
+    it("is not shown when keys can be saved", async () => {
+      backend();
+      const { wrapper } = await mountWithPlugins(SettingsView, {}, { path: "/settings" });
+      await flushPromises();
+      expect(wrapper.find('[data-test="no-keyring"]').exists()).toBe(false);
+      await wrapper.find("#provider").setValue("anthropic");
+      expect(wrapper.find("#api-key").attributes("disabled")).toBeUndefined();
+    });
   });
 });
