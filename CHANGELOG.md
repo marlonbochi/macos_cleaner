@@ -4,6 +4,12 @@ All notable changes to Disk Cleaner. Generated from the commit history by
 [git-cliff](https://git-cliff.org); each version is also published as a
 [GitHub Release](https://github.com/marlonbochi/macos_cleaner/releases) with the app attached.
 
+## [0.2.2](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.2.2) — 2026-10-22
+
+### Features
+
+- **settings:** Warn when the system has no keyring to store API keys ([139e225](https://github.com/marlonbochi/macos_cleaner/commit/139e225a58dd687fcdfde6b398e3b5a7facc4f97))
+
 ## [0.2.1](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.2.1) — 2026-10-19
 
 ### Bug fixes
