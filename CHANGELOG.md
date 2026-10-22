@@ -4,6 +4,12 @@ All notable changes to Disk Cleaner. Generated from the commit history by
 [git-cliff](https://git-cliff.org); each version is also published as a
 [GitHub Release](https://github.com/marlonbochi/macos_cleaner/releases) with the app attached.
 
+## [0.2.3](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.2.3) — 2026-10-22
+
+### Bug fixes
+
+- **deps:** Update rustls-webpki and webpki-root-certs to clear security advisories ([df81a79](https://github.com/marlonbochi/macos_cleaner/commit/df81a790a805e6c3c269210578cfb23b9016c4fc))
+
 ## [0.2.2](https://github.com/marlonbochi/macos_cleaner/releases/tag/v0.2.2) — 2026-10-22
 
 ### Features
